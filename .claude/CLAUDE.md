@@ -19,30 +19,28 @@ This is a monorepo containing both the mobile frontend and backend API.
 
 ```
 mindflow/
-├── .claude/                    # Claude Code project guidance
+├── .claude/                   # Claude Code project guidance
 │   └── CLAUDE.md              # This file
 ├── docs/                      # Project documentation
-│   ├── 0. initial-idea.md    # Original project concept
-│   ├── 1. planning.md        # High-level implementation plan
-│   ├── 2. progress-tracking.md # Progress tracking template
-│   ├── 3. create-claude-md.md # CLAUDE.md creation guide
-│   └── PROGRESS.md           # Current implementation progress
+│   ├── initial-idea.md        # Original project concept
+│   ├── planning.md            # High-level implementation plan
+│   └── PROGRESS.md            # Current implementation progress
 ├── mobile/                    # React Native mobile app (Expo)
-│   ├── app/                  # Expo Router screens
-│   ├── components/           # Reusable UI components
-│   ├── store/                # Zustand state management
-│   ├── services/             # API client and external services
-│   ├── utils/                # Helpers, constants, theme
-│   ├── assets/               # Images, fonts, icons
-│   ├── app.json              # Expo configuration
-│   ├── package.json          # Frontend dependencies
-│   └── .env.example          # Environment variables template
+│   ├── app/                   # Expo Router screens
+│   ├── components/            # Reusable UI components
+│   ├── store/                 # Zustand state management
+│   ├── services/              # API client and external services
+│   ├── utils/                 # Helpers, constants, theme
+│   ├── assets/                # Images, fonts, icons
+│   ├── app.json               # Expo configuration
+│   ├── package.json           # Frontend dependencies
+│   └── .env.example           # Environment variables template
 ├── backend/                   # Node.js API server
 │   ├── src/
-│   │   ├── routes/           # API endpoint definitions
-│   │   ├── controllers/      # Request handlers and business logic
-│   │   ├── middleware/       # Auth, validation, error handling
-│   │   ├── services/         # External service integrations
+│   │   ├── routes/            # API endpoint definitions
+│   │   ├── controllers/       # Request handlers and business logic
+│   │   ├── middleware/        # Auth, validation, error handling
+│   │   ├── services/          # External service integrations
 │   │   │   ├── supabase.service.js
 │   │   │   └── openai.service.js
 │   │   ├── utils/            # Helper functions
