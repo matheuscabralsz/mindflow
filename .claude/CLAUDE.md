@@ -1,687 +1,1224 @@
-# MindFlow - Project Implementation Guide
+# MindFlow - AI-Powered Journal App
 
 ## Repository Purpose
 
-**MindFlow** is an AI-powered journaling application that helps users write daily journal entries, track moods, and receive AI-generated insights about their writing patterns. The app solves the problem of journaling without reflection by surfacing patterns users would never notice manually.
+MindFlow is an AI-powered mobile journal app that helps users write daily journal entries, track moods, and receive AI-generated insights about their writing patterns.
 
-### Main Goals
-- Enable users to create and manage journal entries with mood tracking
-- Provide AI-generated sentiment analysis and insights on journal content
-- Offer search and filtering capabilities to find past entries
-- Deliver a mobile-first, secure, and user-friendly experience
-- Help users understand their emotional patterns over time
+**Core Problems Solved:**
+1. **Making Past Entries Useful:** Traditional journaling means writing 365 entries per year but never looking back. MindFlow uses AI to surface patterns like "Show me how I've changed this year" or "When did I last feel this way?"
+2. **Overcoming Writer's Block:** Smart prompts, writing reminders, and motivation based on past entries help users overcome blank page syndrome
+3. **Affordable Self-Reflection:** Provides a $5-10/month alternative to $100-200 therapy sessions for mood tracking, trigger identification, and emotional awareness
 
----
+**Target Users:** People who want to write better, more productive, and more creative journal entries.
 
-## Project Structure
-
-This is a monorepo containing both the mobile frontend and backend API.
-
-```
-mindflow/
-├── .claude/                   # Claude Code project guidance
-│   └── CLAUDE.md              # This file
-├── docs/                      # Project documentation
-│   ├── initial-idea.md        # Original project concept
-│   ├── planning.md            # High-level implementation plan
-│   └── PROGRESS.md            # Current implementation progress
-├── mobile/                    # React Native mobile app (Expo)
-│   ├── app/                   # Expo Router screens
-│   ├── components/            # Reusable UI components
-│   ├── store/                 # Zustand state management
-│   ├── services/              # API client and external services
-│   ├── utils/                 # Helpers, constants, theme
-│   ├── assets/                # Images, fonts, icons
-│   ├── app.json               # Expo configuration
-│   ├── package.json           # Frontend dependencies
-│   └── .env.example           # Environment variables template
-├── backend/                   # Node.js API server
-│   ├── src/
-│   │   ├── routes/            # API endpoint definitions
-│   │   ├── controllers/       # Request handlers and business logic
-│   │   ├── middleware/        # Auth, validation, error handling
-│   │   ├── services/          # External service integrations
-│   │   │   ├── supabase.service.js
-│   │   │   └── openai.service.js
-│   │   ├── utils/            # Helper functions
-│   │   └── server.js         # Express/Fastify app entry point
-│   ├── migrations/           # Database migration scripts
-│   ├── tests/                # Unit and integration tests
-│   ├── package.json          # Backend dependencies
-│   └── .env.example          # Environment variables template
-├── .gitignore
-├── README.md                 # Project setup and overview
-└── package.json              # Root package.json (monorepo scripts)
-```
+**Success Criteria:**
+- Users can create, edit, and view journal entries on mobile devices
+- Mood tracking captures emotional state for each entry
+- AI provides meaningful sentiment analysis and summaries
+- Search functionality helps users find past entries
+- App is secure, performant, and mobile-responsive
 
 ---
 
 ## Technology Stack
 
-### Frontend (Mobile)
-- **Framework:** React Native with Expo SDK 50+
-- **Language:** JavaScript/TypeScript (TypeScript preferred for type safety)
-- **State Management:** Zustand (lightweight, simple API)
-- **Navigation:** React Navigation v6 (stack and tab navigators)
-- **HTTP Client:** Axios (with interceptors for auth)
-- **Storage:** Expo SecureStore (for JWT tokens) and AsyncStorage (for drafts)
-- **UI Components:** React Native core components + custom components
-- **Styling:** StyleSheet API with centralized theme
-- **Build/Deployment:** Expo EAS (build service)
+### Frontend
+- **Framework:** React Native with Expo (TypeScript)
+  - Cross-platform mobile (iOS + Android)
+  - Rich text input capabilities
+  - Good offline support
+- **State Management:** Zustand
+- **Navigation:** React Navigation (assumed)
+- **UI Components:** React Native Paper or NativeBase (to be decided)
 
-### Backend (API)
-- **Runtime:** Node.js 18+ LTS
-- **Framework:** Express.js or Fastify (Fastify preferred for performance)
-- **Language:** JavaScript (ES6+) or TypeScript
-- **Authentication:** JWT tokens via Supabase Auth
-- **Validation:** Joi or Zod for request validation
-- **Logging:** Winston or Pino (structured logging)
-- **Testing:** Jest (unit tests) + Supertest (integration tests)
-- **Deployment:** Railway
+### Backend
+- **Runtime:** Node.js
+- **Framework:** Express or Fastify
+- **Language:** TypeScript
+- **API Style:** RESTful JSON API
 
-### Database & Services
-- **Primary Database:** PostgreSQL 15+ (via Supabase)
-- **Authentication:** Supabase Auth (email/password)
-- **Storage:** Supabase Storage (future: images, voice notes)
-- **AI Processing:** OpenAI API (GPT-4 or GPT-3.5-turbo)
-- **Row-Level Security:** PostgreSQL RLS policies via Supabase
+### Database & Infrastructure
+- **Primary Database:** PostgreSQL via Supabase
+  - Structured data (users, entries, moods)
+  - Full-text search with tsvector
+  - Row-level security (RLS)
+- **Vector Database:** Pinecone (for semantic search - Phase 12)
+- **Authentication:** Supabase Auth
+- **Storage:** Supabase Storage (images, voice notes)
 
-### Development Tools
-- **Version Control:** Git + GitHub
-- **Package Manager:** npm or yarn
-- **Code Formatting:** Prettier
-- **Linting:** ESLint (Airbnb or Standard style)
-- **API Testing:** Postman or Insomnia
-- **Environment Variables:** dotenv (.env files)
+### AI/ML Services
+- **OpenAI API:**
+  - Sentiment analysis
+  - Daily/weekly summaries
+  - Pattern recognition
+  - Smart prompt generation
+  - Text embeddings for vector search
+
+### Deployment
+- **Frontend:** Expo EAS (iOS and Android distribution)
+- **Backend:** Railway
+- **Database:** Supabase (managed PostgreSQL)
+
+---
+
+## Project Structure
+
+```
+mindflow/
+├── mobile/                          # React Native Expo app
+│   ├── src/
+│   │   ├── screens/                 # Screen components
+│   │   │   ├── auth/                # Login, signup, password reset
+│   │   │   ├── entries/             # Entry list, detail, editor
+│   │   │   ├── insights/            # AI summaries, patterns
+│   │   │   ├── settings/            # User profile, preferences
+│   │   │   └── onboarding/          # New user onboarding
+│   │   ├── components/              # Reusable UI components
+│   │   │   ├── common/              # Buttons, inputs, cards
+│   │   │   ├── entries/             # Entry cards, mood picker
+│   │   │   ├── insights/            # Charts, summaries
+│   │   │   └── navigation/          # Nav bars, tab bars
+│   │   ├── services/                # API clients and services
+│   │   │   ├── api.ts               # Base API client
+│   │   │   ├── auth.service.ts      # Authentication
+│   │   │   ├── entries.service.ts   # Journal CRUD
+│   │   │   ├── insights.service.ts  # AI insights
+│   │   │   └── sync.service.ts      # Offline sync
+│   │   ├── store/                   # Zustand state management
+│   │   │   ├── authStore.ts         # Auth state
+│   │   │   ├── entriesStore.ts      # Entries state
+│   │   │   ├── syncStore.ts         # Sync queue state
+│   │   │   └── settingsStore.ts     # User settings
+│   │   ├── utils/                   # Utility functions
+│   │   │   ├── validation.ts        # Form validation
+│   │   │   ├── date.ts              # Date formatting
+│   │   │   ├── storage.ts           # AsyncStorage helpers
+│   │   │   └── constants.ts         # App constants
+│   │   ├── hooks/                   # Custom React hooks
+│   │   │   ├── useAuth.ts           # Auth hook
+│   │   │   ├── useEntries.ts        # Entries hook
+│   │   │   └── useOffline.ts        # Offline detection
+│   │   ├── types/                   # TypeScript types
+│   │   │   ├── entry.types.ts
+│   │   │   ├── user.types.ts
+│   │   │   └── api.types.ts
+│   │   └── theme/                   # Theming and styles
+│   │       ├── colors.ts
+│   │       ├── typography.ts
+│   │       └── spacing.ts
+│   ├── assets/                      # Images, fonts, icons
+│   ├── app.json                     # Expo configuration
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── backend/                         # Node.js API server
+│   ├── src/
+│   │   ├── routes/                  # API route definitions
+│   │   │   ├── auth.routes.ts       # Auth endpoints
+│   │   │   ├── entries.routes.ts    # Entry CRUD
+│   │   │   ├── insights.routes.ts   # AI insights
+│   │   │   ├── search.routes.ts     # Search endpoints
+│   │   │   └── index.ts             # Route aggregator
+│   │   ├── controllers/             # Request handlers
+│   │   │   ├── auth.controller.ts
+│   │   │   ├── entries.controller.ts
+│   │   │   ├── insights.controller.ts
+│   │   │   └── search.controller.ts
+│   │   ├── services/                # Business logic
+│   │   │   ├── ai/
+│   │   │   │   ├── sentiment.service.ts
+│   │   │   │   ├── summary.service.ts
+│   │   │   │   ├── patterns.service.ts
+│   │   │   │   └── embeddings.service.ts
+│   │   │   ├── entries.service.ts
+│   │   │   ├── search.service.ts
+│   │   │   └── notifications.service.ts
+│   │   ├── middleware/              # Express middleware
+│   │   │   ├── auth.middleware.ts   # JWT verification
+│   │   │   ├── validation.middleware.ts
+│   │   │   ├── rateLimit.middleware.ts
+│   │   │   └── error.middleware.ts
+│   │   ├── models/                  # Data models (if using ORM)
+│   │   │   ├── User.ts
+│   │   │   ├── Entry.ts
+│   │   │   └── Mood.ts
+│   │   ├── database/                # Database utilities
+│   │   │   ├── supabase.ts          # Supabase client
+│   │   │   ├── migrations/          # DB migrations
+│   │   │   └── seeds/               # Seed data
+│   │   ├── utils/                   # Helper functions
+│   │   │   ├── logger.ts            # Logging
+│   │   │   ├── cache.ts             # Caching utilities
+│   │   │   └── validation.ts        # Input validation
+│   │   ├── types/                   # TypeScript types
+│   │   │   ├── express.d.ts         # Express extensions
+│   │   │   └── index.ts             # Shared types
+│   │   ├── config/                  # Configuration
+│   │   │   ├── env.ts               # Environment variables
+│   │   │   ├── openai.ts            # OpenAI config
+│   │   │   └── supabase.ts          # Supabase config
+│   │   └── server.ts                # Express app setup
+│   ├── tests/                       # Backend tests
+│   │   ├── unit/
+│   │   ├── integration/
+│   │   └── fixtures/
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── shared/                          # Shared types between mobile and backend
+│   ├── types/
+│   │   ├── entry.types.ts
+│   │   ├── user.types.ts
+│   │   └── api.types.ts
+│   └── constants.ts
+│
+├── database/                        # Database schemas and migrations
+│   ├── schema.sql                   # Complete schema
+│   ├── migrations/                  # Migration files
+│   └── seed.sql                     # Seed data
+│
+├── docs/                            # Documentation
+│   ├── initial-idea.md              # Project concept
+│   ├── implementation-plan.md       # Phase-by-phase plan
+│   ├── PROGRESS.md                  # Progress tracker
+│   └── api/                         # API documentation
+│       ├── authentication.md
+│       ├── entries.md
+│       └── insights.md
+│
+├── .github/
+│   └── workflows/                   # CI/CD pipelines
+│       ├── mobile-ci.yml
+│       └── backend-ci.yml
+│
+├── .claude/
+│   └── CLAUDE.md                    # This file
+│
+├── .gitignore
+├── README.md
+└── package.json                     # Root package.json (optional monorepo)
+```
 
 ---
 
 ## Development Workflow
 
-### Initial Setup (Phase 1)
+### Initial Setup
 
-1. **Install Development Tools:**
-   ```bash
-   # Install Node.js 18+ LTS
-   node --version  # Verify installation
-
-   # Install Expo CLI globally
-   npm install -g expo-cli
-   expo --version  # Verify installation
-
-   # Install EAS CLI for builds
-   npm install -g eas-cli
-   ```
-
-2. **Create Third-Party Accounts:**
-   - Supabase: https://supabase.com (create project)
-   - OpenAI: https://platform.openai.com (get API key)
-   - Railway: https://railway.app (for backend deployment)
-   - Expo: https://expo.dev (for app builds)
-
-3. **Clone Repository and Install Dependencies:**
-   ```bash
-   cd mindflow
-
-   # Backend setup
-   cd backend
-   npm install
-   cp .env.example .env
-   # Edit .env with your API keys
-
-   # Frontend setup
-   cd ../mobile
-   npm install
-   cp .env.example .env
-   # Edit .env with backend API URL
-   ```
-
-### Running the Project
-
-**Backend (API Server):**
-```bash
-cd backend
-npm run dev          # Development mode with hot reload
-npm test             # Run tests
-npm run test:watch   # Run tests in watch mode
-npm run lint         # Run ESLint
-npm run build        # Build for production (if using TypeScript)
-npm start            # Start production server
-```
-
-**Frontend (Mobile App):**
+**Frontend (React Native Expo):**
 ```bash
 cd mobile
-expo start           # Start development server
-expo start --ios     # Open iOS simulator
-expo start --android # Open Android emulator
-npm test             # Run component tests
-npm run lint         # Run ESLint
+npm install
+npx expo start
+# Press 'i' for iOS simulator
+# Press 'a' for Android emulator
 ```
 
-### Testing Approach
-
-**Backend Testing:**
-- **Unit Tests:** Test individual functions and services (controllers, OpenAI service, etc.)
-- **Integration Tests:** Test API endpoints end-to-end with test database
-- **Coverage Target:** 70%+ code coverage
-- **Test Structure:**
-  ```
-  backend/tests/
-  ├── unit/
-  │   ├── controllers/
-  │   └── services/
-  └── integration/
-      └── api/
-  ```
-
-**Frontend Testing:**
-- **Component Tests:** Test React components with React Testing Library
-- **Navigation Tests:** Verify screen transitions and route protection
-- **State Management Tests:** Test Zustand stores
-- **E2E Tests (Optional):** Detox or Maestro for full user flows
-
-**Test Example (Backend):**
-```javascript
-// backend/tests/integration/api/entries.test.js
-describe('POST /api/entries', () => {
-  it('should create a new journal entry', async () => {
-    const response = await request(app)
-      .post('/api/entries')
-      .set('Authorization', `Bearer ${testToken}`)
-      .send({ content: 'Test entry', mood: 'happy' });
-
-    expect(response.status).toBe(201);
-    expect(response.body.content).toBe('Test entry');
-  });
-});
+**Backend (Node.js):**
+```bash
+cd backend
+npm install
+npm run dev              # Development with hot reload
 ```
 
-### Quality Gates (Before Moving to Next Phase)
+**Database (Supabase):**
+1. Create Supabase project at https://supabase.com
+2. Run migrations from `database/migrations/`
+3. Configure RLS policies for security
+4. Copy connection strings to `.env`
 
-Every phase must pass these quality gates:
+### Environment Variables
 
-1. **Tests Pass:**
-   - All unit tests passing
-   - All integration tests passing (if applicable)
-   - No failing assertions
+**Mobile (.env):**
+```
+EXPO_PUBLIC_API_URL=http://localhost:3000
+EXPO_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=xxx
+```
 
-2. **Build Succeeds:**
-   - Backend: `npm run build` (if TypeScript) or `npm start` runs without errors
-   - Frontend: `expo start` runs without errors
-   - No compilation or runtime errors
+**Backend (.env):**
+```
+NODE_ENV=development
+PORT=3000
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_SERVICE_KEY=xxx
+OPENAI_API_KEY=sk-xxx
+DATABASE_URL=postgresql://xxx
+PINECONE_API_KEY=xxx
+PINECONE_ENVIRONMENT=xxx
+```
 
-3. **Code Quality:**
-   - ESLint passing with no errors
-   - Prettier formatting applied
-   - No console warnings in production builds
+### Build & Run
 
-4. **Functionality:**
-   - All deliverables from the phase completed
-   - Manual testing confirms features work as expected
-   - Edge cases handled (empty states, errors, loading)
+**Development:**
+- Frontend: `npm start` in `mobile/`
+- Backend: `npm run dev` in `backend/`
+- Tests: `npm test` in respective directories
 
-5. **Security (where applicable):**
-   - Authentication working correctly
-   - RLS policies enforced
-   - No API keys or secrets in code
-   - Input validation in place
+**Production Build:**
+- Mobile: `eas build --platform all`
+- Backend: `npm run build` (compiles TypeScript)
+
+### Testing Strategy
+
+**Unit Tests (80%+ coverage):**
+- Business logic in services
+- Utility functions
+- State management
+- AI prompt generation
+
+**Integration Tests:**
+- API endpoints with test database
+- Database queries and RLS policies
+- External API integrations (mocked)
+- Auth flows
+
+**E2E Tests:**
+- Critical user flows:
+  - Sign up → Create entry → View entry
+  - Login → Edit entry → Delete entry
+  - Create entry → View AI insights
+- Test on both iOS and Android
+
+**Manual Testing:**
+- Test on real iOS and Android devices
+- Test offline scenarios
+- Test push notifications
+- Test media uploads
+
+### Quality Gates (Every Phase)
+
+**Before Marking Phase Complete:**
+1. ✅ All tests pass (unit + integration + E2E)
+2. ✅ Frontend builds without errors (`npm run build`)
+3. ✅ Backend builds without errors (`npm run build`)
+4. ✅ No TypeScript errors (`tsc --noEmit`)
+5. ✅ ESLint passes with no errors (`npm run lint`)
+6. ✅ All deliverables implemented
+7. ✅ Manual testing on iOS and Android complete
+8. ✅ Security checks pass (auth, RLS, input validation)
+9. ✅ Performance requirements met
+10. ✅ Code reviewed (if team project)
 
 ---
 
 ## Implementation Phases
 
-Refer to `docs/planning.md` for the complete 12-phase implementation plan. Track progress in `docs/PROGRESS.md`.
+Refer to `docs/implementation-plan.md` for complete details. Here's the execution order:
 
-### Phase Order and Dependencies
+### MVP Phases (Required for Launch)
 
-**Start Immediately:**
-- Phase 1: Development Environment Setup
-- Phase 5: Mobile Frontend Foundation (after Phase 1)
+**Phase 1: Foundation & Infrastructure** ← START HERE
+- Prerequisites: None
+- Complexity: Moderate
+- Set up React Native, Node.js, Supabase, database schema
 
-**Critical Path:**
-Phase 1 → 2 → 3 → 6 → 7 → 11 → 12
+**Phase 2: User Authentication**
+- Prerequisites: Phase 1
+- Complexity: Moderate
+- Supabase Auth, login/signup screens, JWT middleware
 
-**Parallel Work Opportunities:**
-- Phases 2-4 (Backend/Database/AI) can be developed while Phase 5 (Frontend Foundation) is in progress
-- Phase 5 only depends on Phase 1, so frontend work can start early
+**Phase 3: Core Journal CRUD**
+- Prerequisites: Phase 2
+- Complexity: Moderate
+- Entry list, creation, editing, deletion with RLS
 
-**Key Milestones:**
-1. Phase 2 complete = Database ready
-2. Phase 3 complete = API ready for frontend integration
-3. Phase 6 complete = Users can authenticate
-4. Phase 7 complete = Core journaling features work
-5. Phase 9 complete = AI features active
-6. Phase 12 complete = MVP deployed to production
+**After Phase 3, these can run in PARALLEL:**
+
+**Phase 4: Mood Tracking** (Simple)
+**Phase 5: Search & Filtering** (Moderate)
+**Phase 6: Basic AI Integration** (Complex) ← Critical for MVP
+
+### Post-MVP Phases
+
+**Phase 7: Advanced AI Insights**
+- Prerequisites: Phase 6
+- Complexity: Complex
+- Pattern recognition, smart prompts, monthly reports
+
+**Phase 8: Offline Mode & Sync**
+- Prerequisites: Phase 3
+- Complexity: Complex
+
+**Phase 9: Media & Rich Content**
+- Prerequisites: Phase 3
+- Complexity: Complex
+
+**Phase 10: Organization Features**
+- Prerequisites: Phase 3
+- Complexity: Moderate
+
+**Phase 11: Engagement Features**
+- Prerequisites: Phase 2 & 3
+- Complexity: Moderate
+
+**Phase 12: Vector Search**
+- Prerequisites: Phase 6
+- Complexity: Complex
+
+### Polish Phase
+
+**Phase 13: Enhanced UI/UX**
+- Prerequisites: None (can start anytime)
+- Complexity: Moderate
+- Dark mode, onboarding, accessibility
 
 ---
 
 ## Coding Conventions
 
-### General Principles
-- **KISS:** Keep It Simple, Stupid - prefer simple solutions
-- **DRY:** Don't Repeat Yourself - extract reusable logic
-- **YAGNI:** You Aren't Gonna Need It - don't over-engineer
-- **Test-Driven Development:** Write tests for critical functionality
-- **Security First:** Never trust user input, always validate
+### TypeScript Standards
 
-### JavaScript/TypeScript Style
+**Use Strict Mode:**
+```typescript
+// tsconfig.json
+{
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true
+  }
+}
+```
 
-**Naming Conventions:**
-- Files: `camelCase.js` or `kebab-case.js` (be consistent)
-- Components: `PascalCase.jsx` (e.g., `EntryListScreen.jsx`)
-- Functions/variables: `camelCase` (e.g., `getUserEntries`)
-- Constants: `UPPER_SNAKE_CASE` (e.g., `API_BASE_URL`)
-- Private functions: prefix with `_` (e.g., `_formatDate`)
+**Prefer Interfaces for Object Shapes:**
+```typescript
+// Good
+interface Entry {
+  id: string;
+  userId: string;
+  content: string;
+  mood: Mood;
+  createdAt: Date;
+}
 
-**Code Structure:**
-```javascript
-// 1. Imports (grouped: external, internal, relative)
-import React, { useState, useEffect } from 'react';
-import { View, Text } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+// Avoid
+type Entry = {
+  id: string;
+  // ...
+}
+```
 
-import { fetchEntries } from '../services/api';
-import { Button } from '../components';
-import styles from './styles';
+**Use Type for Unions/Intersections:**
+```typescript
+type Mood = 'happy' | 'sad' | 'anxious' | 'calm' | 'stressed';
+type ApiResponse<T> = SuccessResponse<T> | ErrorResponse;
+```
 
-// 2. Constants
-const MAX_ENTRIES_PER_PAGE = 20;
+### React Native / React Conventions
 
-// 3. Component definition
-const EntryListScreen = () => {
-  // 3a. Hooks
-  const navigation = useNavigation();
-  const [entries, setEntries] = useState([]);
+**Functional Components with TypeScript:**
+```typescript
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 
-  // 3b. Effects
-  useEffect(() => {
-    loadEntries();
-  }, []);
+interface EntryCardProps {
+  entry: Entry;
+  onPress: (id: string) => void;
+}
 
-  // 3c. Functions
-  const loadEntries = async () => {
-    // Implementation
-  };
-
-  // 3d. Render
+export const EntryCard: React.FC<EntryCardProps> = ({ entry, onPress }) => {
   return (
     <View style={styles.container}>
-      {/* JSX */}
+      <Text>{entry.content}</Text>
     </View>
   );
 };
 
-// 4. Exports
-export default EntryListScreen;
-```
-
-**Async/Await (Preferred over Promises):**
-```javascript
-// Good
-const createEntry = async (content) => {
-  try {
-    const response = await api.post('/entries', { content });
-    return response.data;
-  } catch (error) {
-    console.error('Failed to create entry:', error);
-    throw error;
-  }
-};
-
-// Avoid (unless chaining multiple operations)
-const createEntry = (content) => {
-  return api.post('/entries', { content })
-    .then(response => response.data)
-    .catch(error => {
-      console.error('Failed to create entry:', error);
-      throw error;
-    });
-};
-```
-
-**Error Handling:**
-```javascript
-// Backend (Express/Fastify)
-app.post('/api/entries', async (req, res, next) => {
-  try {
-    const entry = await createEntry(req.body);
-    res.status(201).json(entry);
-  } catch (error) {
-    next(error); // Pass to error handling middleware
-  }
-});
-
-// Frontend (React Native)
-const handleCreateEntry = async () => {
-  setLoading(true);
-  try {
-    const entry = await api.createEntry(content);
-    navigation.navigate('EntryList');
-  } catch (error) {
-    Alert.alert('Error', 'Failed to create entry. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
-```
-
-### React Native Best Practices
-
-**Component Organization:**
-- Prefer functional components with hooks over class components
-- Keep components small and focused (single responsibility)
-- Extract reusable logic into custom hooks
-- Use `memo()` for expensive components that don't need frequent re-renders
-
-**State Management (Zustand):**
-```javascript
-// store/authStore.js
-import { create } from 'zustand';
-
-export const useAuthStore = create((set) => ({
-  user: null,
-  token: null,
-
-  setAuth: (user, token) => set({ user, token }),
-  logout: () => set({ user: null, token: null }),
-}));
-
-// Usage in component
-import { useAuthStore } from '../store/authStore';
-
-const MyComponent = () => {
-  const { user, logout } = useAuthStore();
-  // ...
-};
-```
-
-**Styling:**
-- Use StyleSheet.create for performance
-- Centralize theme values (colors, fonts, spacing)
-- Prefer Flexbox for layouts
-- Use Platform-specific styles when needed
-
-```javascript
-// utils/theme.js
-export const colors = {
-  primary: '#6366f1',
-  secondary: '#8b5cf6',
-  background: '#ffffff',
-  text: '#1f2937',
-  error: '#ef4444',
-};
-
-export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-};
-
-// components/MyComponent.jsx
-import { StyleSheet } from 'react-native';
-import { colors, spacing } from '../utils/theme';
-
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    padding: spacing.md,
-    backgroundColor: colors.background,
+    padding: 16,
+    backgroundColor: '#fff',
   },
 });
 ```
 
-### Backend (Express/Fastify) Best Practices
+**Custom Hooks for Logic Reuse:**
+```typescript
+export const useEntries = () => {
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [loading, setLoading] = useState(false);
 
-**Project Structure:**
+  const fetchEntries = async () => {
+    setLoading(true);
+    try {
+      const data = await entriesService.getAll();
+      setEntries(data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { entries, loading, fetchEntries };
+};
 ```
-backend/src/
-├── routes/
-│   ├── index.js           # Route aggregator
-│   ├── auth.routes.js     # Authentication routes
-│   └── entries.routes.js  # Journal entry routes
-├── controllers/
-│   ├── auth.controller.js
-│   └── entries.controller.js
-├── middleware/
-│   ├── auth.middleware.js      # JWT verification
-│   ├── validate.middleware.js  # Request validation
-│   └── error.middleware.js     # Global error handler
-├── services/
-│   ├── supabase.service.js
-│   └── openai.service.js
-└── server.js
+
+**Zustand Store Pattern:**
+```typescript
+import { create } from 'zustand';
+
+interface EntriesStore {
+  entries: Entry[];
+  loading: boolean;
+  setEntries: (entries: Entry[]) => void;
+  addEntry: (entry: Entry) => void;
+  updateEntry: (id: string, updates: Partial<Entry>) => void;
+  deleteEntry: (id: string) => void;
+}
+
+export const useEntriesStore = create<EntriesStore>((set) => ({
+  entries: [],
+  loading: false,
+  setEntries: (entries) => set({ entries }),
+  addEntry: (entry) => set((state) => ({
+    entries: [entry, ...state.entries]
+  })),
+  updateEntry: (id, updates) => set((state) => ({
+    entries: state.entries.map(e =>
+      e.id === id ? { ...e, ...updates } : e
+    )
+  })),
+  deleteEntry: (id) => set((state) => ({
+    entries: state.entries.filter(e => e.id !== id)
+  })),
+}));
 ```
+
+### Backend / API Conventions
 
 **Controller Pattern:**
-```javascript
-// controllers/entries.controller.js
-const { supabaseClient } = require('../services/supabase.service');
+```typescript
+// controllers/entries.controller.ts
+import { Request, Response } from 'express';
+import { entriesService } from '../services/entries.service';
 
-const createEntry = async (req, res, next) => {
+export const getEntries = async (req: Request, res: Response) => {
   try {
-    const { content, mood } = req.body;
     const userId = req.user.id; // From auth middleware
+    const entries = await entriesService.getUserEntries(userId);
+    res.json({ success: true, data: entries });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch entries'
+    });
+  }
+};
+```
 
-    const { data, error } = await supabaseClient
+**Service Layer Pattern:**
+```typescript
+// services/entries.service.ts
+import { supabase } from '../database/supabase';
+
+export const entriesService = {
+  async getUserEntries(userId: string): Promise<Entry[]> {
+    const { data, error } = await supabase
       .from('entries')
-      .insert({ user_id: userId, content, mood })
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async createEntry(userId: string, entry: CreateEntryDto): Promise<Entry> {
+    const { data, error } = await supabase
+      .from('entries')
+      .insert([{ ...entry, user_id: userId }])
       .select()
       .single();
 
     if (error) throw error;
-
-    res.status(201).json(data);
-  } catch (error) {
-    next(error);
-  }
+    return data;
+  },
 };
-
-module.exports = { createEntry };
 ```
 
-**Middleware Pattern:**
-```javascript
-// middleware/auth.middleware.js
-const { verifyToken } = require('../services/supabase.service');
+**API Response Format:**
+```typescript
+// Success
+{
+  "success": true,
+  "data": { ... }
+}
 
-const authenticateUser = async (req, res, next) => {
+// Error
+{
+  "success": false,
+  "error": "Error message",
+  "code": "ERROR_CODE"
+}
+```
+
+### Naming Conventions
+
+**Files:**
+- Components: PascalCase - `EntryCard.tsx`
+- Services: camelCase - `entries.service.ts`
+- Hooks: camelCase - `useEntries.ts`
+- Utilities: camelCase - `validation.ts`
+- Types: camelCase - `entry.types.ts`
+
+**Variables & Functions:**
+- camelCase - `getUserEntries`, `isLoading`, `handleSubmit`
+
+**Constants:**
+- UPPER_SNAKE_CASE - `API_BASE_URL`, `MAX_FILE_SIZE`
+
+**React Components:**
+- PascalCase - `EntryCard`, `MoodPicker`, `InsightsDashboard`
+
+**Interfaces & Types:**
+- PascalCase - `Entry`, `User`, `ApiResponse<T>`
+
+### Code Organization
+
+**Group Imports:**
+```typescript
+// 1. External libraries
+import React, { useState, useEffect } from 'react';
+import { View, Text } from 'react-native';
+
+// 2. Internal modules
+import { useEntries } from '../hooks/useEntries';
+import { EntryCard } from '../components/entries/EntryCard';
+
+// 3. Types
+import type { Entry } from '../types/entry.types';
+
+// 4. Styles
+import { styles } from './styles';
+```
+
+**Single Responsibility:**
+- Each component/function should do ONE thing
+- Extract complex logic into custom hooks or services
+- Keep components under 200 lines (split if larger)
+
+**DRY Principle:**
+- Extract reusable logic into utilities
+- Create shared components for repeated UI patterns
+- Use custom hooks for common state patterns
+
+### Comment Standards
+
+**JSDoc for Public APIs:**
+```typescript
+/**
+ * Analyzes the sentiment of a journal entry using OpenAI
+ * @param content - The text content to analyze
+ * @returns Sentiment score between -1 (negative) and 1 (positive)
+ * @throws {OpenAIError} If the API call fails
+ */
+export async function analyzeSentiment(content: string): Promise<number> {
+  // Implementation
+}
+```
+
+**Inline Comments for Complex Logic:**
+```typescript
+// Calculate streak: consecutive days with at least one entry
+const streak = entries.reduce((count, entry, index) => {
+  if (index === 0) return 1;
+
+  const prevDate = new Date(entries[index - 1].createdAt);
+  const currDate = new Date(entry.createdAt);
+  const daysDiff = Math.floor((prevDate - currDate) / (1000 * 60 * 60 * 24));
+
+  // If entries are consecutive days, increment streak
+  return daysDiff === 1 ? count + 1 : 1;
+}, 0);
+```
+
+---
+
+## Security Best Practices
+
+### Authentication & Authorization
+
+**Backend:**
+- ✅ Verify JWT tokens on all protected routes
+- ✅ Use Supabase Auth middleware
+- ✅ Never trust client-side user IDs - extract from verified token
+- ✅ Implement rate limiting on auth endpoints
+
+```typescript
+// middleware/auth.middleware.ts
+export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
+  const token = req.headers.authorization?.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Missing token' });
-    }
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) throw error;
 
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    req.user = user; // Attach user to request
+    req.user = user; // Attach verified user to request
     next();
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' });
   }
 };
-
-module.exports = { authenticateUser };
 ```
 
-**Route Definition:**
-```javascript
-// routes/entries.routes.js
-const express = require('express');
-const { authenticateUser } = require('../middleware/auth.middleware');
-const { createEntry, getEntries } = require('../controllers/entries.controller');
+**Database:**
+- ✅ Implement Row-Level Security (RLS) in Supabase
+- ✅ Users can only access their own entries
+- ✅ No direct database access from frontend (API only)
 
-const router = express.Router();
-
-router.use(authenticateUser); // Protect all routes
-
-router.post('/', createEntry);
-router.get('/', getEntries);
-
-module.exports = router;
-```
-
-### Database (Supabase/PostgreSQL)
-
-**Migration Structure:**
 ```sql
--- migrations/001_create_entries_table.sql
-CREATE TABLE entries (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  content TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- Create indexes
-CREATE INDEX idx_entries_user_id ON entries(user_id);
-CREATE INDEX idx_entries_created_at ON entries(created_at DESC);
-
--- Full-text search index
-CREATE INDEX idx_entries_content_fts ON entries USING GIN(to_tsvector('english', content));
-
--- Row-level security
+-- Row-Level Security Policy
 ALTER TABLE entries ENABLE ROW LEVEL SECURITY;
 
--- Policy: Users can only read their own entries
-CREATE POLICY entries_select_policy ON entries
-  FOR SELECT
-  USING (auth.uid() = user_id);
-
--- Policy: Users can only insert their own entries
-CREATE POLICY entries_insert_policy ON entries
-  FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
--- Policy: Users can only update their own entries
-CREATE POLICY entries_update_policy ON entries
-  FOR UPDATE
-  USING (auth.uid() = user_id);
-
--- Policy: Users can only delete their own entries
-CREATE POLICY entries_delete_policy ON entries
-  FOR DELETE
-  USING (auth.uid() = user_id);
+CREATE POLICY "Users can only access their own entries"
+ON entries FOR ALL
+USING (auth.uid() = user_id);
 ```
 
-**Naming Conventions:**
-- Tables: `snake_case`, plural (e.g., `entries`, `moods`)
-- Columns: `snake_case` (e.g., `user_id`, `created_at`)
-- Indexes: `idx_{table}_{column(s)}` (e.g., `idx_entries_user_id`)
-- Policies: `{table}_{operation}_policy` (e.g., `entries_select_policy`)
+### Input Validation
+
+**Validate ALL User Inputs:**
+```typescript
+import { z } from 'zod';
+
+const createEntrySchema = z.object({
+  content: z.string().min(1).max(10000),
+  mood: z.enum(['happy', 'sad', 'anxious', 'calm', 'stressed']),
+  tags: z.array(z.string()).max(10).optional(),
+});
+
+export const validateCreateEntry = (data: unknown) => {
+  return createEntrySchema.parse(data);
+};
+```
+
+**Prevent SQL Injection:**
+- ✅ Use Supabase client (parameterized queries)
+- ❌ Never concatenate user input into SQL strings
+
+**Prevent XSS:**
+- ✅ Sanitize HTML if allowing rich text
+- ✅ React Native is safe by default (doesn't render HTML)
+- ✅ Escape user content in summaries/insights
+
+### Data Protection
+
+**Sensitive Data:**
+- ✅ Never log passwords, tokens, or API keys
+- ✅ Use environment variables for secrets
+- ✅ Encrypt data at rest (Supabase handles this)
+- ✅ Use HTTPS for all API calls
+
+**API Keys:**
+- ✅ Store in `.env` files (never commit)
+- ✅ Use different keys for dev/staging/production
+- ✅ Rotate keys periodically
+
+### Rate Limiting
+
+**Protect AI Endpoints:**
+```typescript
+import rateLimit from 'express-rate-limit';
+
+const aiRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 requests per window
+  message: 'Too many AI requests, please try again later',
+});
+
+router.post('/insights/summary', aiRateLimiter, getSummary);
+```
 
 ---
 
-## File Organization
+## Performance Requirements
 
-### Where to Put Files
+### Mobile App Performance
 
-**Mobile App:**
-- **Screens:** `mobile/app/` (Expo Router) or `mobile/screens/`
-  - One file per screen (e.g., `LoginScreen.jsx`, `EntryListScreen.jsx`)
-- **Reusable Components:** `mobile/components/`
-  - Group by feature (e.g., `components/entry/EntryCard.jsx`)
-  - Or by type (e.g., `components/buttons/PrimaryButton.jsx`)
-- **State Stores:** `mobile/store/`
-  - One file per store (e.g., `authStore.js`, `entriesStore.js`)
-- **API Client:** `mobile/services/`
-  - `api.js` (main API client with Axios)
-  - Feature-specific services (e.g., `entriesService.js`)
-- **Utilities:** `mobile/utils/`
-  - Theme, constants, helpers, formatters
-- **Assets:** `mobile/assets/`
-  - Images, fonts, icons
+**App Launch:**
+- Target: < 3 seconds to interactive
+- Optimize: Lazy load screens, minimize bundle size
 
-**Backend API:**
-- **Routes:** `backend/src/routes/`
-  - One file per resource (e.g., `entries.routes.js`)
-- **Controllers:** `backend/src/controllers/`
-  - One file per resource (e.g., `entries.controller.js`)
-- **Middleware:** `backend/src/middleware/`
-  - Named by purpose (e.g., `auth.middleware.js`, `validate.middleware.js`)
-- **Services:** `backend/src/services/`
-  - External integrations (e.g., `openai.service.js`, `supabase.service.js`)
-- **Database Migrations:** `backend/migrations/`
-  - Numbered and dated (e.g., `001_create_entries_table.sql`)
-- **Tests:** `backend/tests/`
-  - Mirror src/ structure (e.g., `tests/unit/controllers/entries.controller.test.js`)
+**Entry List Loading:**
+- Target: < 1 second
+- Optimize: Pagination, infinite scroll, local cache
 
-**Documentation:**
-- **Project Docs:** `docs/`
-  - Planning, architecture, API docs
-- **README:** Root `README.md` (setup instructions, overview)
-- **This File:** `.claude/CLAUDE.md` (guidance for Claude Code)
+**Animations:**
+- Target: 60fps smooth animations
+- Use: React Native Reanimated for complex animations
+- Avoid: Heavy computations during animations
+
+**Bundle Size:**
+- Target: < 50MB total app size
+- Optimize: Code splitting, remove unused dependencies
+
+### Backend API Performance
+
+**API Response Times:**
+- Target: p95 < 500ms (95th percentile)
+- Optimize: Database indexes, caching, connection pooling
+
+**AI Operations:**
+- Target: < 5 seconds
+- Optimize: Parallel requests, caching, background jobs
+
+**Database Queries:**
+- Target: < 100ms for most queries
+- Optimize: Indexes on `user_id`, `created_at`, full-text search columns
+
+### Caching Strategy
+
+**Backend Caching:**
+- AI summaries: Cache for 24 hours (invalidate on new entries)
+- User preferences: Cache for 1 hour
+- Search results: Cache for 5 minutes
+
+**Frontend Caching:**
+- Entry list: Cache in Zustand + AsyncStorage
+- User profile: Cache in memory
+- Images: Cache with Expo Image caching
+
+### Database Optimization
+
+**Indexes:**
+```sql
+CREATE INDEX idx_entries_user_id ON entries(user_id);
+CREATE INDEX idx_entries_created_at ON entries(created_at DESC);
+CREATE INDEX idx_entries_mood ON entries(mood);
+CREATE INDEX idx_entries_search ON entries USING GIN(to_tsvector('english', content));
+```
+
+**Pagination:**
+```typescript
+// Fetch 20 entries at a time
+const { data } = await supabase
+  .from('entries')
+  .select('*')
+  .eq('user_id', userId)
+  .order('created_at', { ascending: false })
+  .range(offset, offset + 19); // Offset-based pagination
+```
+
+---
+
+## Testing Requirements
+
+### Unit Tests (80%+ Coverage)
+
+**What to Test:**
+- Business logic in services
+- Utility functions (date formatting, validation)
+- State management (Zustand stores)
+- AI prompt generation
+- Data transformations
+
+**Example:**
+```typescript
+// services/__tests__/entries.service.test.ts
+describe('entriesService', () => {
+  it('should create entry with correct user_id', async () => {
+    const userId = 'user-123';
+    const entryData = { content: 'Test entry', mood: 'happy' };
+
+    const entry = await entriesService.createEntry(userId, entryData);
+
+    expect(entry.user_id).toBe(userId);
+    expect(entry.content).toBe('Test entry');
+  });
+});
+```
+
+### Integration Tests
+
+**What to Test:**
+- API endpoints with test database
+- Database queries and RLS policies
+- External API integrations (mocked)
+- Auth flows end-to-end
+
+**Example:**
+```typescript
+// routes/__tests__/entries.routes.test.ts
+describe('POST /entries', () => {
+  it('should create entry for authenticated user', async () => {
+    const token = await getTestUserToken();
+
+    const response = await request(app)
+      .post('/entries')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ content: 'Test', mood: 'happy' });
+
+    expect(response.status).toBe(201);
+    expect(response.body.data.content).toBe('Test');
+  });
+
+  it('should reject unauthenticated requests', async () => {
+    const response = await request(app)
+      .post('/entries')
+      .send({ content: 'Test', mood: 'happy' });
+
+    expect(response.status).toBe(401);
+  });
+});
+```
+
+### E2E Tests (Critical Flows)
+
+**Critical User Flows:**
+1. Sign up → Create first entry → View entry
+2. Login → Edit entry → Delete entry
+3. Create entry → View AI insights
+4. Offline: Create entry → Go online → Sync
+
+**Tools:**
+- Detox for React Native E2E testing
+- Test on both iOS and Android
+
+### Manual Testing Checklist
+
+**Before Each Phase Completion:**
+- [ ] Test on iOS simulator
+- [ ] Test on Android emulator
+- [ ] Test on real iOS device
+- [ ] Test on real Android device
+- [ ] Test offline scenarios (if applicable)
+- [ ] Test with slow network connection
+- [ ] Test with no network connection
+- [ ] Test edge cases (empty states, errors)
+- [ ] Test accessibility (screen reader)
+
+---
+
+## AI Integration Guidelines
+
+### OpenAI Best Practices
+
+**Cost Control:**
+- ✅ Use GPT-3.5-turbo for most tasks (cheaper)
+- ✅ Reserve GPT-4 for complex pattern recognition only
+- ✅ Cache results aggressively
+- ✅ Implement rate limiting per user
+- ✅ Monitor costs with usage tracking
+
+**Prompt Engineering:**
+```typescript
+const SENTIMENT_PROMPT = `
+Analyze the emotional tone of this journal entry and return a sentiment score.
+
+Entry: "{content}"
+
+Return ONLY a JSON object with this format:
+{
+  "score": <number between -1 (very negative) and 1 (very positive)>,
+  "primary_emotion": "<happy|sad|anxious|calm|stressed|neutral>",
+  "confidence": <number between 0 and 1>
+}
+`;
+```
+
+**Error Handling:**
+```typescript
+try {
+  const response = await openai.chat.completions.create({
+    model: 'gpt-3.5-turbo',
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.3, // Lower for consistent results
+    max_tokens: 500,
+  });
+
+  return JSON.parse(response.choices[0].message.content);
+} catch (error) {
+  if (error.status === 429) {
+    // Rate limited - implement exponential backoff
+    await sleep(1000);
+    return retry();
+  }
+
+  // Return fallback sentiment
+  return { score: 0, primary_emotion: 'neutral', confidence: 0 };
+}
+```
+
+**Caching Strategy:**
+```typescript
+// Cache sentiment analysis for 30 days (entries rarely edited)
+const cacheKey = `sentiment:${entryId}`;
+const cached = await redis.get(cacheKey);
+
+if (cached) return JSON.parse(cached);
+
+const sentiment = await analyzeSentiment(content);
+await redis.setex(cacheKey, 30 * 24 * 60 * 60, JSON.stringify(sentiment));
+
+return sentiment;
+```
+
+### Vector Search with Pinecone (Phase 12)
+
+**Embedding Generation:**
+```typescript
+const embedding = await openai.embeddings.create({
+  model: 'text-embedding-3-small', // Most cost-effective
+  input: entry.content,
+});
+
+const vector = embedding.data[0].embedding;
+
+// Store in Pinecone
+await pinecone.upsert({
+  vectors: [{
+    id: entry.id,
+    values: vector,
+    metadata: { userId: entry.userId, createdAt: entry.createdAt },
+  }],
+});
+```
+
+**Similarity Search:**
+```typescript
+const results = await pinecone.query({
+  vector: queryEmbedding,
+  topK: 5,
+  filter: { userId: currentUserId }, // Only search user's entries
+  includeMetadata: true,
+});
+```
 
 ---
 
 ## Important Principles
 
-### Security
-1. **Never commit secrets:** Use .env files and add them to .gitignore
-2. **Validate all input:** Never trust user input (SQL injection, XSS)
-3. **Use HTTPS:** Always use HTTPS in production (Railway provides this)
-4. **Row-Level Security:** Enforce RLS policies on all Supabase tables
-5. **Rate limiting:** Prevent API abuse with rate limits
-6. **Secure token storage:** Use Expo SecureStore for JWT tokens, never AsyncStorage
-7. **No sensitive data in logs:** Don't log tokens, passwords, or personal information
+### Privacy First
+- ✅ User data is NEVER shared with third parties
+- ✅ AI processing happens securely (no training on user data)
+- ✅ Provide data export and account deletion
+- ✅ Be transparent about what data is stored
 
-### Performance
-1. **Lazy loading:** Load data as needed, not all at once
-2. **Pagination:** Paginate large lists (entries list)
-3. **Debouncing:** Debounce search inputs to reduce API calls
-4. **Caching:** Cache AI analysis results to avoid redundant OpenAI calls
-5. **Optimistic updates:** Update UI immediately, sync with server in background
-6. **Image optimization:** Compress images before upload (future feature)
+### Mobile-First Design
+- ✅ Design for mobile screens first, desktop later
+- ✅ Touch-friendly UI (44px minimum touch targets)
+- ✅ Thumb-friendly navigation (bottom tabs)
+- ✅ Offline-capable where possible
 
-### User Experience
-1. **Loading states:** Always show loading indicators for async operations
-2. **Error messages:** Provide helpful, user-friendly error messages
-3. **Offline support:** Save drafts locally, sync when online
-4. **Empty states:** Design for empty screens ("No entries yet, start writing!")
-5. **Confirmation dialogs:** Confirm destructive actions (delete entry)
-6. **Accessibility:** Use proper labels, contrast, and touch targets
+### Accessibility
+- ✅ Screen reader compatible (accessibility labels)
+- ✅ High contrast text (WCAG AA compliance)
+- ✅ Keyboard navigable
+- ✅ Support for larger text sizes
 
-### AI Integration
-1. **Server-side processing:** AI analysis happens in the backend, not on the client
-2. **Cost awareness:** OpenAI API costs money; cache results and use rate limiting
-3. **Graceful degradation:** App should work even if OpenAI API is down (show cached results or skip AI features)
-4. **Privacy:** Inform users that entries are processed by OpenAI (in privacy policy)
-5. **Prompt engineering:** Carefully design prompts for consistent, helpful outputs
+### Progressive Enhancement
+- ✅ Core functionality works without AI (manual journaling)
+- ✅ AI insights are additive, not required
+- ✅ Offline mode supports essential features
+- ✅ Graceful degradation when APIs fail
 
-### Code Quality
-1. **Write tests:** Aim for 70%+ coverage on critical paths
-2. **Code reviews:** Review your own code before committing
-3. **Consistent formatting:** Use Prettier and ESLint
-4. **Meaningful names:** Use descriptive variable and function names
-5. **Comments:** Comment complex logic, but prefer self-documenting code
-6. **Git commits:** Use clear, descriptive commit messages (e.g., "Add entry deletion with confirmation dialog")
+### Iteration Over Perfection
+- ✅ Ship MVP features first, polish later
+- ✅ Gather user feedback early and often
+- ✅ Iterate on AI prompts based on feedback
+- ✅ Don't over-engineer - YAGNI principle
 
 ---
 
-## Next Steps
+## Common Patterns & Examples
 
-1. **Review Planning:** Read `docs/planning.md` to understand all 12 phases
-2. **Start Phase 1:** Set up development environment (tools, accounts, API keys)
-3. **Track Progress:** Update `docs/PROGRESS.md` as you complete tasks
-4. **Follow Quality Gates:** Don't skip to the next phase until current phase passes all quality gates
-5. **Test Frequently:** Run tests after every significant change
-6. **Ask for Help:** If blocked, review docs or ask for clarification
+### Error Handling Pattern
+
+**Frontend:**
+```typescript
+try {
+  setLoading(true);
+  const entry = await entriesService.create(data);
+  useEntriesStore.getState().addEntry(entry);
+  navigation.navigate('EntryDetail', { id: entry.id });
+} catch (error) {
+  if (error.code === 'NETWORK_ERROR') {
+    // Queue for offline sync
+    await syncQueue.add('createEntry', data);
+    Alert.alert('Saved offline', 'Will sync when online');
+  } else {
+    Alert.alert('Error', 'Failed to save entry. Please try again.');
+  }
+} finally {
+  setLoading(false);
+}
+```
+
+**Backend:**
+```typescript
+export const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
+  logger.error(err);
+
+  if (err instanceof ValidationError) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  if (err instanceof AuthError) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  res.status(500).json({ error: 'Internal server error' });
+};
+```
+
+### Loading States
+
+```typescript
+const EntryList: React.FC = () => {
+  const { entries, loading } = useEntries();
+
+  if (loading) {
+    return <LoadingSkeleton count={5} />;
+  }
+
+  if (entries.length === 0) {
+    return <EmptyState message="No entries yet. Start journaling!" />;
+  }
+
+  return (
+    <FlatList
+      data={entries}
+      renderItem={({ item }) => <EntryCard entry={item} />}
+      keyExtractor={item => item.id}
+    />
+  );
+};
+```
+
+### Optimistic UI Updates
+
+```typescript
+const deleteEntry = async (id: string) => {
+  // Optimistically remove from UI
+  useEntriesStore.getState().deleteEntry(id);
+
+  try {
+    await entriesService.delete(id);
+  } catch (error) {
+    // Rollback on error
+    useEntriesStore.getState().addEntry(deletedEntry);
+    Alert.alert('Error', 'Failed to delete entry');
+  }
+};
+```
 
 ---
 
-## References
+## Git Workflow
 
-- **Expo Docs:** https://docs.expo.dev
-- **React Navigation:** https://reactnavigation.org
-- **Zustand:** https://docs.pmnd.rs/zustand
-- **Supabase Docs:** https://supabase.com/docs
-- **OpenAI API:** https://platform.openai.com/docs
-- **Fastify Docs:** https://www.fastify.io/docs
-- **Railway Docs:** https://docs.railway.app
+### Branch Naming
+- `main` - Production-ready code
+- `develop` - Integration branch
+- `feature/phase-1-setup` - Feature branches
+- `bugfix/fix-auth-token` - Bug fixes
+- `hotfix/critical-issue` - Production hotfixes
+
+### Commit Messages
+```
+feat(auth): add password reset flow
+fix(entries): resolve duplicate key error on sync
+docs(api): update authentication endpoints
+test(insights): add sentiment analysis tests
+refactor(ui): extract MoodPicker component
+```
+
+### Pull Request Template
+```markdown
+## Phase
+Phase 3: Core Journal CRUD Operations
+
+## Description
+Implements full CRUD operations for journal entries with RLS
+
+## Checklist
+- [x] All tests pass
+- [x] ESLint passes
+- [x] TypeScript compiles
+- [x] Tested on iOS
+- [x] Tested on Android
+- [x] Phase deliverables complete
+- [x] Quality gates met
+```
 
 ---
 
-**Last Updated:** 2025-11-02
+## When Implementing Features
+
+### Before Starting
+1. ✅ Read the phase description in `docs/implementation-plan.md`
+2. ✅ Review prerequisites - are they complete?
+3. ✅ Check `docs/PROGRESS.md` for current status
+4. ✅ Understand the deliverables and quality gates
+
+### During Implementation
+1. ✅ Follow the project structure defined above
+2. ✅ Write tests alongside code (TDD when possible)
+3. ✅ Keep commits small and focused
+4. ✅ Test frequently on both iOS and Android
+5. ✅ Document complex logic with comments
+
+### Before Completing Phase
+1. ✅ Run all tests (unit + integration + E2E)
+2. ✅ Verify all quality gates pass
+3. ✅ Manual testing on iOS and Android
+4. ✅ Update `docs/PROGRESS.md` with completion date
+5. ✅ Document any decisions or learnings
+
+### Code Review Checklist
+- [ ] Code follows TypeScript conventions
+- [ ] Tests cover edge cases
+- [ ] No console.logs or debug code
+- [ ] Error handling is comprehensive
+- [ ] Security best practices followed
+- [ ] Performance requirements met
+- [ ] Accessibility considered
+- [ ] Mobile-responsive on all screen sizes
+
+---
+
+## Quick Reference
+
+### Useful Commands
+
+```bash
+# Frontend
+cd mobile
+npm start                    # Start Expo dev server
+npm test                     # Run tests
+npm run lint                 # Run ESLint
+npm run type-check          # TypeScript check
+
+# Backend
+cd backend
+npm run dev                  # Start dev server with hot reload
+npm test                     # Run tests
+npm run lint                 # Run ESLint
+npm run build               # Compile TypeScript
+
+# Database
+npx supabase migration new <name>    # Create migration
+npx supabase db push                 # Apply migrations
+npx supabase db reset                # Reset database
+```
+
+### Important Files
+- `docs/implementation-plan.md` - Complete phase descriptions
+- `docs/PROGRESS.md` - Track completion status
+- `database/schema.sql` - Database schema
+- `.env` - Environment variables (never commit!)
+
+### Key Links
+- Supabase Dashboard: https://app.supabase.com
+- Expo Dashboard: https://expo.dev
+- OpenAI API Keys: https://platform.openai.com/api-keys
+- Railway Dashboard: https://railway.app
+
+---
+
+**Remember:** Quality over speed. Each phase builds on the previous ones, so take time to get it right!
