@@ -7,11 +7,11 @@
 **Time Estimate:** 4-6 hours
 
 **Prerequisites:**
-- Node.js 18+ installed
+- Node.js 22+ (LTS) installed
 - Git installed
 - Code editor (VS Code recommended)
 - iOS Simulator (Mac) and/or Android Studio (for testing)
-- Supabase account (free tier)
+- Supabase account (free tier) or Supabase CLI installed
 
 **What You'll Have At The End:**
 - React Native Expo app showing "Hello World" on mobile
@@ -26,15 +26,14 @@
 
 ### 1.1 Create Project Directory
 
+**Note:** If you already have the `mindflow` directory created, skip to initializing git.
+
 ```bash
-# Navigate to your workspace
-cd ~/my_workspace
+# If starting fresh, create the project directory
+mkdir -p /home/mack/my_workspace/mindflow
+cd /home/mack/my_workspace/mindflow
 
-# Create and enter project directory
-mkdir mindflow
-cd mindflow
-
-# Initialize root git repository
+# Initialize root git repository (if not already initialized)
 git init
 
 # Create root .gitignore
@@ -103,23 +102,19 @@ An AI-powered mobile journal app that helps users write daily journal entries, t
 ## Quick Start
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 22+ (LTS)
 - iOS Simulator (Mac) or Android Studio
 - Supabase account
 
 ### Frontend Setup
-```bash
-cd mobile
-npm install
-npx expo start
-```
+    cd mobile
+    npm install
+    npx expo start
 
 ### Backend Setup
-```bash
-cd backend
-npm install
-npm run dev
-```
+    cd backend
+    npm install
+    npm run dev
 
 ## Documentation
 
@@ -147,14 +142,14 @@ EOF
 
 ### 2.1 Initialize Expo Project
 
+**Note:** Make sure the `mobile` directory is empty before running this command.
+
 ```bash
 # Navigate to mobile directory
 cd mobile
 
 # Create Expo app with TypeScript template
 npx create-expo-app@latest . --template blank-typescript
-
-# This creates the basic Expo structure
 ```
 
 ### 2.2 Install Core Dependencies
@@ -921,6 +916,8 @@ npm pkg set scripts.type-check="tsc --noEmit"
 
 ### 4.1 Create Supabase Project
 
+**Option 1: Via Supabase Dashboard (Recommended for beginners)**
+
 1. Go to https://supabase.com
 2. Click "New Project"
 3. Enter project details:
@@ -930,6 +927,24 @@ npm pkg set scripts.type-check="tsc --noEmit"
    - Pricing Plan: Free
 4. Click "Create new project"
 5. Wait 2-3 minutes for project to be ready
+
+**Option 2: Via Supabase CLI (For automation)**
+
+```bash
+# Install Supabase CLI (if not already installed)
+npm install -g supabase
+
+# Login to Supabase
+supabase login
+
+# Initialize Supabase project
+supabase init
+
+# Link to a new remote project
+supabase link --project-ref <your-project-ref>
+```
+
+For this guide, we'll continue with **Option 1** (Dashboard) as it's more visual and beginner-friendly.
 
 ### 4.2 Get Supabase Credentials
 
@@ -945,20 +960,37 @@ Once your project is ready:
 
 ### 4.3 Update Environment Files
 
+**Important:** Replace the placeholder values with your actual Supabase credentials from Step 4.2.
+
 Update `backend/.env`:
+
 ```bash
+cd ../backend
+
+cat > .env << 'EOF'
+NODE_ENV=development
+PORT=3000
 SUPABASE_URL=https://xxxxx.supabase.co
-SUPABASE_SERVICE_KEY=eyJhb...
-SUPABASE_ANON_KEY=eyJhb...
-DATABASE_URL=postgresql://postgres:[password]@db.xxxxx.supabase.co:5432/postgres
+SUPABASE_SERVICE_KEY=eyJhb...your-service-key...
+SUPABASE_ANON_KEY=eyJhb...your-anon-key...
+DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.xxxxx.supabase.co:5432/postgres
+OPENAI_API_KEY=sk-your-key
+EOF
 ```
 
 Update `mobile/.env`:
+
 ```bash
+cd ../mobile
+
+cat > .env << 'EOF'
 EXPO_PUBLIC_API_URL=http://localhost:3000
 EXPO_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhb...
+EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhb...your-anon-key...
+EOF
 ```
+
+**Note:** After creating these files, open them in your editor and replace the placeholder values (`xxxxx`, `eyJhb...`, `[YOUR-PASSWORD]`) with your actual credentials from the Supabase dashboard.
 
 ### 4.4 Create Database Schema
 
@@ -1313,6 +1345,8 @@ export interface PaginatedResponse<T> {
 EOF
 
 cat > constants.ts << 'EOF'
+import { Mood } from './types';
+
 export const MOODS: Mood[] = ['happy', 'sad', 'anxious', 'calm', 'stressed', 'neutral'];
 
 export const MOOD_LABELS: Record<Mood, string> = {
@@ -1348,8 +1382,6 @@ export const API_ENDPOINTS = {
     DELETE: (id: string) => `/entries/${id}`,
   },
 };
-
-import { Mood } from './types';
 EOF
 
 cat > tsconfig.json << 'EOF'
@@ -1496,6 +1528,118 @@ EOF
 
 ## Step 7: Final Verification & Testing (20 minutes)
 
+### 7.0 Automated Verification Script (Recommended)
+
+Create an automated verification script to check all setup requirements:
+
+```bash
+cd /home/mack/my_workspace/mindflow
+
+cat > verify-setup.sh << 'EOF'
+#!/bin/bash
+
+echo "🔍 MindFlow Phase 1 Setup Verification"
+echo "======================================"
+echo ""
+
+# Color codes
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+ERRORS=0
+
+# Check Node.js version
+echo -n "Checking Node.js version... "
+NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+if [ "$NODE_VERSION" -ge 22 ]; then
+    echo -e "${GREEN}✓${NC} Node.js $(node -v)"
+else
+    echo -e "${RED}✗${NC} Node.js 22+ required (found $(node -v))"
+    ((ERRORS++))
+fi
+
+# Check if directories exist
+echo -n "Checking directory structure... "
+if [ -d "mobile" ] && [ -d "backend" ] && [ -d "database" ] && [ -d "shared" ]; then
+    echo -e "${GREEN}✓${NC} All directories present"
+else
+    echo -e "${RED}✗${NC} Missing directories"
+    ((ERRORS++))
+fi
+
+# Check mobile setup
+echo -n "Checking mobile package.json... "
+if [ -f "mobile/package.json" ]; then
+    echo -e "${GREEN}✓${NC} Found"
+else
+    echo -e "${RED}✗${NC} Not found"
+    ((ERRORS++))
+fi
+
+# Check backend setup
+echo -n "Checking backend package.json... "
+if [ -f "backend/package.json" ]; then
+    echo -e "${GREEN}✓${NC} Found"
+else
+    echo -e "${RED}✗${NC} Not found"
+    ((ERRORS++))
+fi
+
+# Check environment files
+echo -n "Checking mobile/.env... "
+if [ -f "mobile/.env" ]; then
+    echo -e "${GREEN}✓${NC} Found"
+else
+    echo -e "${YELLOW}⚠${NC} Not found (you'll need this)"
+    ((ERRORS++))
+fi
+
+echo -n "Checking backend/.env... "
+if [ -f "backend/.env" ]; then
+    echo -e "${GREEN}✓${NC} Found"
+else
+    echo -e "${YELLOW}⚠${NC} Not found (you'll need this)"
+    ((ERRORS++))
+fi
+
+# Check TypeScript configs
+echo -n "Checking TypeScript configs... "
+if [ -f "mobile/tsconfig.json" ] && [ -f "backend/tsconfig.json" ]; then
+    echo -e "${GREEN}✓${NC} Both present"
+else
+    echo -e "${RED}✗${NC} Missing configs"
+    ((ERRORS++))
+fi
+
+# Check database schema
+echo -n "Checking database schema... "
+if [ -f "database/schema.sql" ]; then
+    echo -e "${GREEN}✓${NC} Found"
+else
+    echo -e "${RED}✗${NC} Not found"
+    ((ERRORS++))
+fi
+
+echo ""
+echo "======================================"
+if [ $ERRORS -eq 0 ]; then
+    echo -e "${GREEN}✓ All checks passed!${NC}"
+    echo "You can proceed to run the applications."
+else
+    echo -e "${RED}✗ Found $ERRORS issue(s)${NC}"
+    echo "Please fix the issues above before proceeding."
+    exit 1
+fi
+EOF
+
+chmod +x verify-setup.sh
+./verify-setup.sh
+```
+
+If all checks pass, continue with manual testing below.
+
 ### 7.1 Test Frontend
 
 ```bash
@@ -1514,7 +1658,7 @@ npm run lint
 npm start
 ```
 
-**Expected Result:**
+Expected Result:
 - No TypeScript errors
 - No ESLint errors
 - Expo dev server starts successfully
@@ -1540,7 +1684,7 @@ npm run lint
 npm run dev
 ```
 
-**Expected Result:**
+Expected Result:
 - No TypeScript errors
 - No ESLint errors
 - Server starts on port 3000
@@ -1548,19 +1692,21 @@ npm run dev
 
 ### 7.3 Test Health Endpoint
 
-Open a new terminal:
+Open a new terminal and run:
 
 ```bash
-# Test health endpoint
 curl http://localhost:3000/api/health
+```
 
-# Expected response:
-# {
-#   "success": true,
-#   "message": "MindFlow API is running",
-#   "timestamp": "2025-01-09T...",
-#   "environment": "development"
-# }
+Expected response:
+
+```json
+{
+  "success": true,
+  "message": "MindFlow API is running",
+  "timestamp": "2025-01-09T...",
+  "environment": "development"
+}
 ```
 
 ### 7.4 Test Database Connection
@@ -1577,28 +1723,35 @@ async function testConnection() {
   try {
     const { data, error } = await supabase
       .from('entries')
-      .select('count')
-      .single();
+      .select('*')
+      .limit(1);
 
     if (error) {
-      console.log('✅ Database connected (table exists, no data yet)');
-    } else {
-      console.log('✅ Database connected successfully');
-      console.log('Entries count:', data);
+      console.error('❌ Database connection failed:', error.message);
+      process.exit(1);
     }
+
+    console.log('✅ Database connected successfully');
+    console.log(`Found ${data?.length || 0} entries`);
   } catch (err) {
     console.error('❌ Database connection failed:', err);
+    process.exit(1);
   }
 }
 
 testConnection();
 EOF
+```
 
+Run the test script:
+
+```bash
 npx ts-node src/test-db.ts
 ```
 
-**Expected Result:**
-- "✅ Database connected" message appears
+Expected Result:
+- "✅ Database connected successfully" message appears
+- "Found 0 entries" (since we haven't created any yet)
 - No connection errors
 
 ---
