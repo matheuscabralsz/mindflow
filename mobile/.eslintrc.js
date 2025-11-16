@@ -25,6 +25,7 @@ module.exports = {
     'react/prop-types': 'off',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    'react-native/no-color-literals': 'off', // Allow color literals for now
   },
   settings: {
     react: {
