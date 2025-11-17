@@ -1,0 +1,7 @@
+{
+  "name": "mindflow",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react-vite"
+}

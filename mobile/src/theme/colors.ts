@@ -1,25 +1,34 @@
 export const colors = {
-  primary: '#6366F1',
-  secondary: '#8B5CF6',
-  background: '#FFFFFF',
-  surface: '#F3F4F6',
-  text: '#1F2937',
-  textSecondary: '#6B7280',
-  border: '#E5E7EB',
-  error: '#EF4444',
-  success: '#10B981',
-  warning: '#F59E0B',
-};
+  primary: '#3880ff',
+  secondary: '#0cd1e8',
+  tertiary: '#7044ff',
+  success: '#10dc60',
+  warning: '#ffce00',
+  danger: '#f04141',
+  light: '#f4f5f8',
+  medium: '#989aa2',
+  dark: '#222428',
 
-export const darkColors = {
-  primary: '#818CF8',
-  secondary: '#A78BFA',
-  background: '#111827',
-  surface: '#1F2937',
-  text: '#F9FAFB',
-  textSecondary: '#D1D5DB',
-  border: '#374151',
-  error: '#F87171',
-  success: '#34D399',
-  warning: '#FBBF24',
+  // Custom colors for MindFlow
+  mood: {
+    happy: '#10dc60',
+    sad: '#4c8dff',
+    anxious: '#ffc409',
+    calm: '#0cd1e8',
+    stressed: '#f04141',
+    neutral: '#989aa2',
+  },
+
+  // Background colors
+  background: {
+    light: '#ffffff',
+    dark: '#1e1e1e',
+  },
+
+  // Text colors
+  text: {
+    primary: '#000000',
+    secondary: '#6c757d',
+    light: '#ffffff',
+  },
 };

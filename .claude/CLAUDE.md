@@ -23,13 +23,16 @@ MindFlow is an AI-powered mobile journal app that helps users write daily journa
 ## Technology Stack
 
 ### Frontend
-- **Framework:** React Native with Expo (TypeScript)
-  - Cross-platform mobile (iOS + Android)
-  - Rich text input capabilities
-  - Good offline support
+- **Framework:** Ionic 8 + React 19 + Vite (TypeScript)
+  - Cross-platform mobile (iOS + Android) via Capacitor 7
+  - Web-first with native capabilities
+  - Fast development with Vite HMR
+  - Responsive UI with Ionic components
 - **State Management:** Zustand
-- **Navigation:** React Navigation (assumed)
-- **UI Components:** React Native Paper or NativeBase (to be decided)
+- **Navigation:** React Router (via @ionic/react-router)
+- **UI Components:** Ionic Framework (@ionic/react)
+- **Build Tool:** Vite 5
+- **Form Handling:** React Hook Form + Zod
 
 ### Backend
 - **Runtime:** Node.js
@@ -55,7 +58,10 @@ MindFlow is an AI-powered mobile journal app that helps users write daily journa
   - Text embeddings for vector search
 
 ### Deployment
-- **Frontend:** Expo EAS (iOS and Android distribution)
+- **Frontend:** Capacitor (iOS and Android native builds)
+  - Web: Static hosting (Vercel, Netlify, or similar)
+  - iOS: App Store via Xcode
+  - Android: Play Store via Android Studio
 - **Backend:** Railway
 - **Database:** Supabase (managed PostgreSQL)
 
@@ -65,51 +71,55 @@ MindFlow is an AI-powered mobile journal app that helps users write daily journa
 
 ```
 mindflow/
-├── mobile/                          # React Native Expo app
+├── mobile/                          # Ionic + React + Vite app
 │   ├── src/
-│   │   ├── screens/                 # Screen components
+│   │   ├── pages/                   # Page components (Ionic pages)
 │   │   │   ├── auth/                # Login, signup, password reset
 │   │   │   ├── entries/             # Entry list, detail, editor
 │   │   │   ├── insights/            # AI summaries, patterns
 │   │   │   ├── settings/            # User profile, preferences
-│   │   │   └── onboarding/          # New user onboarding
+│   │   │   ├── onboarding/          # New user onboarding
+│   │   │   └── Home.tsx             # Home/landing page
 │   │   ├── components/              # Reusable UI components
 │   │   │   ├── common/              # Buttons, inputs, cards
 │   │   │   ├── entries/             # Entry cards, mood picker
 │   │   │   ├── insights/            # Charts, summaries
-│   │   │   └── navigation/          # Nav bars, tab bars
+│   │   │   └── layout/              # Layout components, headers
 │   │   ├── services/                # API clients and services
-│   │   │   ├── api.ts               # Base API client
+│   │   │   ├── supabase.ts          # Supabase client config
 │   │   │   ├── auth.service.ts      # Authentication
 │   │   │   ├── entries.service.ts   # Journal CRUD
-│   │   │   ├── insights.service.ts  # AI insights
-│   │   │   └── sync.service.ts      # Offline sync
+│   │   │   └── insights.service.ts  # AI insights
 │   │   ├── store/                   # Zustand state management
 │   │   │   ├── authStore.ts         # Auth state
 │   │   │   ├── entriesStore.ts      # Entries state
-│   │   │   ├── syncStore.ts         # Sync queue state
 │   │   │   └── settingsStore.ts     # User settings
 │   │   ├── utils/                   # Utility functions
-│   │   │   ├── validation.ts        # Form validation
-│   │   │   ├── date.ts              # Date formatting
-│   │   │   ├── storage.ts           # AsyncStorage helpers
+│   │   │   ├── validation.ts        # Form validation (Zod schemas)
+│   │   │   ├── date.ts              # Date formatting (date-fns)
 │   │   │   └── constants.ts         # App constants
 │   │   ├── hooks/                   # Custom React hooks
 │   │   │   ├── useAuth.ts           # Auth hook
-│   │   │   ├── useEntries.ts        # Entries hook
-│   │   │   └── useOffline.ts        # Offline detection
+│   │   │   └── useEntries.ts        # Entries hook
 │   │   ├── types/                   # TypeScript types
 │   │   │   ├── entry.types.ts
 │   │   │   ├── user.types.ts
 │   │   │   └── api.types.ts
 │   │   └── theme/                   # Theming and styles
-│   │       ├── colors.ts
-│   │       ├── typography.ts
-│   │       └── spacing.ts
-│   ├── assets/                      # Images, fonts, icons
-│   ├── app.json                     # Expo configuration
+│   │       ├── colors.ts            # Color palette
+│   │       ├── typography.ts        # Font styles
+│   │       ├── spacing.ts           # Spacing constants
+│   │       ├── variables.css        # Ionic CSS variables
+│   │       └── index.ts             # Theme exports
+│   ├── public/                      # Static assets
+│   │   └── assets/                  # Images, fonts, icons
+│   ├── capacitor.config.ts          # Capacitor configuration
+│   ├── ionic.config.json            # Ionic CLI configuration
+│   ├── vite.config.ts               # Vite configuration
 │   ├── package.json
-│   └── tsconfig.json
+│   ├── tsconfig.json
+│   ├── .eslintrc.cjs                # ESLint configuration
+│   └── .prettierrc                  # Prettier configuration
 │
 ├── backend/                         # Node.js API server
 │   ├── src/
@@ -205,13 +215,18 @@ mindflow/
 
 ### Initial Setup
 
-**Frontend (React Native Expo):**
+**Frontend (Ionic + React + Vite):**
 ```bash
 cd mobile
 npm install
-npx expo start
-# Press 'i' for iOS simulator
-# Press 'a' for Android emulator
+npm run dev              # Start Vite dev server on http://localhost:3000
+
+# For native development:
+npm run cap:add:ios      # Add iOS platform (Mac only)
+npm run cap:add:android  # Add Android platform
+npm run cap:sync         # Sync web code to native platforms
+npm run cap:open:ios     # Open in Xcode
+npm run cap:open:android # Open in Android Studio
 ```
 
 **Backend (Node.js):**
@@ -231,9 +246,9 @@ npm run dev              # Development with hot reload
 
 **Mobile (.env):**
 ```
-EXPO_PUBLIC_API_URL=http://localhost:3000
-EXPO_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=xxx
+VITE_API_URL=http://localhost:3000
+VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_ANON_KEY=xxx
 ```
 
 **Backend (.env):**
@@ -251,12 +266,15 @@ PINECONE_ENVIRONMENT=xxx
 ### Build & Run
 
 **Development:**
-- Frontend: `npm start` in `mobile/`
+- Frontend: `npm run dev` in `mobile/` (Vite dev server on http://localhost:3000)
 - Backend: `npm run dev` in `backend/`
 - Tests: `npm test` in respective directories
 
 **Production Build:**
-- Mobile: `eas build --platform all`
+- Mobile Web: `npm run build` in `mobile/` (creates `dist/` folder)
+- Mobile Native:
+  - iOS: `npm run cap:sync && npm run cap:open:ios` → Build in Xcode
+  - Android: `npm run cap:sync && npm run cap:open:android` → Build in Android Studio
 - Backend: `npm run build` (compiles TypeScript)
 
 ### Testing Strategy
@@ -311,7 +329,7 @@ Refer to `docs/implementation-plan.md` for complete details. Here's the executio
 **Phase 1: Foundation & Infrastructure** ← START HERE
 - Prerequisites: None
 - Complexity: Moderate
-- Set up React Native, Node.js, Supabase, database schema
+- Set up Ionic + React + Vite, Supabase, database schema, Capacitor
 
 **Phase 2: User Authentication**
 - Prerequisites: Phase 1
@@ -405,12 +423,11 @@ type Mood = 'happy' | 'sad' | 'anxious' | 'calm' | 'stressed';
 type ApiResponse<T> = SuccessResponse<T> | ErrorResponse;
 ```
 
-### React Native / React Conventions
+### Ionic + React Conventions
 
 **Functional Components with TypeScript:**
 ```typescript
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { IonCard, IonCardContent, IonCardHeader, IonCardTitle } from '@ionic/react';
 
 interface EntryCardProps {
   entry: Entry;
@@ -419,18 +436,16 @@ interface EntryCardProps {
 
 export const EntryCard: React.FC<EntryCardProps> = ({ entry, onPress }) => {
   return (
-    <View style={styles.container}>
-      <Text>{entry.content}</Text>
-    </View>
+    <IonCard button onClick={() => onPress(entry.id)}>
+      <IonCardHeader>
+        <IonCardTitle>{new Date(entry.created_at).toLocaleDateString()}</IonCardTitle>
+      </IonCardHeader>
+      <IonCardContent>
+        {entry.content}
+      </IonCardContent>
+    </IonCard>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    backgroundColor: '#fff',
-  },
-});
 ```
 
 **Custom Hooks for Logic Reuse:**
@@ -704,7 +719,8 @@ export const validateCreateEntry = (data: unknown) => {
 
 **Prevent XSS:**
 - ✅ Sanitize HTML if allowing rich text
-- ✅ React Native is safe by default (doesn't render HTML)
+- ✅ React is safe by default with JSX (auto-escapes)
+- ✅ Use `dangerouslySetInnerHTML` only when necessary and sanitize first
 - ✅ Escape user content in summaries/insights
 
 ### Data Protection
@@ -751,12 +767,14 @@ router.post('/insights/summary', aiRateLimiter, getSummary);
 
 **Animations:**
 - Target: 60fps smooth animations
-- Use: React Native Reanimated for complex animations
+- Use: CSS transitions and Ionic animations
+- Use: Web Animations API for complex animations
 - Avoid: Heavy computations during animations
 
 **Bundle Size:**
-- Target: < 50MB total app size
-- Optimize: Code splitting, remove unused dependencies
+- Target: < 2MB initial JS bundle (web)
+- Target: < 50MB total app size (native)
+- Optimize: Code splitting, tree shaking, lazy loading
 
 ### Backend API Performance
 
@@ -780,9 +798,9 @@ router.post('/insights/summary', aiRateLimiter, getSummary);
 - Search results: Cache for 5 minutes
 
 **Frontend Caching:**
-- Entry list: Cache in Zustand + AsyncStorage
+- Entry list: Cache in Zustand + localStorage (web) / Capacitor Storage (native)
 - User profile: Cache in memory
-- Images: Cache with Expo Image caching
+- Images: Cache with browser cache + Capacitor Filesystem API
 
 ### Database Optimization
 
@@ -877,21 +895,24 @@ describe('POST /entries', () => {
 4. Offline: Create entry → Go online → Sync
 
 **Tools:**
-- Detox for React Native E2E testing
-- Test on both iOS and Android
+- Cypress for E2E testing (comes pre-configured with Ionic)
+- Vitest for unit/integration testing
+- Test on web browser, iOS, and Android
 
 ### Manual Testing Checklist
 
 **Before Each Phase Completion:**
-- [ ] Test on iOS simulator
+- [ ] Test in Chrome browser (desktop)
+- [ ] Test in Safari browser (if on Mac)
+- [ ] Test on iOS simulator (if on Mac)
 - [ ] Test on Android emulator
-- [ ] Test on real iOS device
-- [ ] Test on real Android device
+- [ ] Test on real iOS device (via Capacitor)
+- [ ] Test on real Android device (via Capacitor)
 - [ ] Test offline scenarios (if applicable)
-- [ ] Test with slow network connection
+- [ ] Test with slow network connection (Chrome DevTools)
 - [ ] Test with no network connection
 - [ ] Test edge cases (empty states, errors)
-- [ ] Test accessibility (screen reader)
+- [ ] Test accessibility (screen reader, keyboard navigation)
 
 ---
 
@@ -1187,35 +1208,45 @@ Implements full CRUD operations for journal entries with RLS
 ### Useful Commands
 
 ```bash
-# Frontend
+# Frontend (Ionic + Vite)
 cd mobile
-npm start                    # Start Expo dev server
-npm test                     # Run tests
+npm run dev                  # Start Vite dev server (http://localhost:3000)
+npm run build                # Build for production
+npm test                     # Run Vitest tests
 npm run lint                 # Run ESLint
-npm run type-check          # TypeScript check
+npm run type-check           # TypeScript check
+npm run format               # Format with Prettier
+
+# Capacitor (Native)
+npm run cap:sync             # Sync web code to native platforms
+npm run cap:open:ios         # Open in Xcode (Mac only)
+npm run cap:open:android     # Open in Android Studio
 
 # Backend
 cd backend
 npm run dev                  # Start dev server with hot reload
 npm test                     # Run tests
 npm run lint                 # Run ESLint
-npm run build               # Compile TypeScript
+npm run build                # Compile TypeScript
 
 # Database
-npx supabase migration new <name>    # Create migration
-npx supabase db push                 # Apply migrations
-npx supabase db reset                # Reset database
+cd supabase
+cat schemas/*.sql > schema.sql              # Combine schema files
+npx supabase db push                        # Apply migrations (requires Docker)
 ```
 
 ### Important Files
 - `docs/implementation-plan.md` - Complete phase descriptions
+- `docs/phases/phase-01-detailed-ionic.md` - Ionic setup guide
 - `docs/PROGRESS.md` - Track completion status
-- `supabase/migrations/*.sql` - Database migrations
+- `supabase/schemas/*.sql` - Database schema files
+- `supabase/schema.sql` - Combined schema
 - `.env` - Environment variables (never commit!)
 
 ### Key Links
 - Supabase Dashboard: https://app.supabase.com
-- Expo Dashboard: https://expo.dev
+- Ionic Documentation: https://ionicframework.com/docs
+- Capacitor Documentation: https://capacitorjs.com/docs
 - OpenAI API Keys: https://platform.openai.com/api-keys
 - Railway Dashboard: https://railway.app
 
