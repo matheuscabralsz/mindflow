@@ -31,16 +31,28 @@ npm install
 npm run dev
 ```
 
-### Supabase
+### Supabase Setup
+```aiexclude
+// create a supabase migration from schema changes
+npx supabase db diff -f <migration-name>
+```
+
+### supabase (local)
+```
+// obs: need docker running
+supabase start
+
+// reset supabase database with schema changes
+ supabase reset
+```
+
+### Supabase (prod)
 ```
 // login to Supabase CLI
 npx supabase login
 
 // link project to backend
 npx supabase link --project-ref <project-ref>
-
-// create a supabase migration
-npx supabase migration new new-migration
 
 // run migrations
 npx supabase db push
