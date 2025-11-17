@@ -28,3 +28,8 @@ build/
 # Temporary files
 *.tmp
 .cache/
+
+# Supabase
+supabase/.temp/
+supabase/.branches/
+supabase/config.toml
