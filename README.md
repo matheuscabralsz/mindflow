@@ -6,7 +6,7 @@ An AI-powered mobile journal app that helps users write daily journal entries, t
 
 - `mobile/` - React Native Expo app (iOS + Android)
 - `backend/` - Node.js Express API server
-- `database/` - PostgreSQL schema and migrations
+- `supabase/` - Database migrations (Supabase CLI)
 - `shared/` - Shared TypeScript types
 - `docs/` - Documentation
 
@@ -29,6 +29,21 @@ npx expo start
 cd backend
 npm install
 npm run dev
+```
+
+### Supabase
+```
+// login to Supabase CLI
+npx supabase login
+
+// link project to backend
+npx supabase link --project-ref <project-ref>
+
+// create a supabase migration
+npx supabase migration new new-migration
+
+// run migrations
+npx supabase db push
 ```
 
 ## Documentation

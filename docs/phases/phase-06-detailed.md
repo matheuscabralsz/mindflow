@@ -133,7 +133,11 @@ COMMENT ON TABLE ai_usage IS 'Track AI API usage for cost monitoring and rate li
 ```
 
 ### Migration File
-Create: `database/migrations/006_add_ai_features.sql`
+Create using Supabase CLI:
+```bash
+npx supabase migration new add_ai_features
+# This creates: supabase/migrations/YYYYMMDDHHMMSS_add_ai_features.sql
+```
 
 ---
 

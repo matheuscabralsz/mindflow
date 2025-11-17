@@ -79,7 +79,11 @@ COMMENT ON COLUMN entries.title IS 'Optional entry title extracted from first li
 ```
 
 ### Migration File
-Create: `database/migrations/003_create_entries_table.sql`
+Create using Supabase CLI:
+```bash
+npx supabase migration new create_entries_table
+# This creates: supabase/migrations/YYYYMMDDHHMMSS_create_entries_table.sql
+```
 
 ---
 

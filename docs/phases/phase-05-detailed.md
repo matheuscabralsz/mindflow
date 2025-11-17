@@ -100,7 +100,11 @@ COMMENT ON TABLE recent_searches IS 'User search history for quick access';
 ```
 
 ### Migration File
-Create: `database/migrations/005_add_search_capabilities.sql`
+Create using Supabase CLI:
+```bash
+npx supabase migration new add_search_capabilities
+# This creates: supabase/migrations/YYYYMMDDHHMMSS_add_search_capabilities.sql
+```
 
 ---
 

@@ -78,7 +78,7 @@ EOF
 mkdir -p mobile
 mkdir -p backend
 mkdir -p shared/types
-mkdir -p database/migrations
+mkdir -p supabase/migrations
 mkdir -p docs
 mkdir -p .github/workflows
 ```
@@ -1234,10 +1234,20 @@ EOF
 
 ### 4.6 Apply Schema to Supabase
 
+**Option 1: Using Supabase CLI (Recommended)**
+```bash
+# Link to your Supabase project (first time only)
+npx supabase link --project-ref <your-project-ref>
+
+# Apply migrations
+npx supabase db push
+```
+
+**Option 2: Manual Application via Dashboard**
 1. Open Supabase dashboard
 2. Go to SQL Editor
 3. Click "New Query"
-4. Copy the contents of `database/migrations/001_initial_schema.sql`
+4. Copy the contents of `supabase/migrations/20251117063228_first-migration.sql`
 5. Paste into the editor
 6. Click "Run" button
 7. Verify no errors appear

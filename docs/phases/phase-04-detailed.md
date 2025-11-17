@@ -62,7 +62,11 @@ COMMENT ON VIEW user_mood_stats IS 'Aggregated mood statistics by user, week, an
 ```
 
 ### Migration File
-Create: `database/migrations/004_add_mood_tracking.sql`
+Create using Supabase CLI:
+```bash
+npx supabase migration new add_mood_tracking
+# This creates: supabase/migrations/YYYYMMDDHHMMSS_add_mood_tracking.sql
+```
 
 ---
 

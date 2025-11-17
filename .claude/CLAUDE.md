@@ -144,8 +144,7 @@ mindflow/
 │   │   │   └── Mood.ts
 │   │   ├── database/                # Database utilities
 │   │   │   ├── supabase.ts          # Supabase client
-│   │   │   ├── migrations/          # DB migrations
-│   │   │   └── seeds/               # Seed data
+│   │   │   └── seeds/               # Seed data scripts
 │   │   ├── utils/                   # Helper functions
 │   │   │   ├── logger.ts            # Logging
 │   │   │   ├── cache.ts             # Caching utilities
@@ -172,10 +171,11 @@ mindflow/
 │   │   └── api.types.ts
 │   └── constants.ts
 │
-├── database/                        # Database schemas and migrations
-│   ├── schema.sql                   # Complete schema
-│   ├── migrations/                  # Migration files
-│   └── seed.sql                     # Seed data
+├── supabase/                        # Supabase local development
+│   ├── migrations/                  # Database migration files
+│   │   └── YYYYMMDDHHMMSS_*.sql    # Timestamped migrations
+│   ├── config.toml                  # Supabase CLI config (optional)
+│   └── seed.sql                     # Seed data (optional)
 │
 ├── docs/                            # Documentation
 │   ├── initial-idea.md              # Project concept
@@ -222,10 +222,10 @@ npm run dev              # Development with hot reload
 ```
 
 **Database (Supabase):**
-1. Create Supabase project at https://supabase.com
-2. Run migrations from `database/migrations/`
-3. Configure RLS policies for security
-4. Copy connection strings to `.env`
+1. Install Supabase CLI: `npm install -g supabase` (if not already installed)
+2. Link to your Supabase project: `npx supabase link --project-ref <your-project-ref>`
+3. Apply migrations: `npx supabase db push`
+4. Copy connection strings to `.env` from Supabase Dashboard
 
 ### Environment Variables
 
@@ -1210,7 +1210,7 @@ npx supabase db reset                # Reset database
 ### Important Files
 - `docs/implementation-plan.md` - Complete phase descriptions
 - `docs/PROGRESS.md` - Track completion status
-- `database/schema.sql` - Database schema
+- `supabase/migrations/*.sql` - Database migrations
 - `.env` - Environment variables (never commit!)
 
 ### Key Links

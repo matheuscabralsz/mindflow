@@ -357,7 +357,7 @@ Now create the database tables in Supabase.
 
 ```bash
 cd /home/matheus/my_workspace/mindflow
-cat database/schema.sql
+cat supabase/migrations/20251117063228_first-migration.sql
 ```
 
 Copy the **entire output** to your clipboard.
@@ -620,8 +620,8 @@ ESLINT_USE_FLAT_CONFIG=false npm run lint
 **Error:** `relation "entries" does not exist`
 
 **Solution:**
-1. Go to Supabase SQL Editor
-2. Re-run the schema from `database/schema.sql`
+1. Apply migrations using Supabase CLI: `npx supabase db push`
+2. Or manually via SQL Editor: Copy contents from `supabase/migrations/20251117063228_first-migration.sql`
 3. Verify tables appear in Table Editor
 4. Check for any error messages in SQL Editor
 

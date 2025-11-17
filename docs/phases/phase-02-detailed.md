@@ -71,7 +71,11 @@ CREATE INDEX idx_users_email ON public.users(email);
 ```
 
 ### Migration File
-Create: `database/migrations/002_create_users_table.sql`
+Create using Supabase CLI:
+```bash
+npx supabase migration new create_users_table
+# This creates: supabase/migrations/YYYYMMDDHHMMSS_create_users_table.sql
+```
 
 ---
 
