@@ -66,8 +66,8 @@ People who want to write better, more productive, and more creative journal entr
 ### Tech Stack
 
 ## Front end
-- React Native with Expo 
-  - Cross-platform mobile app (iOS + Android) from a single codebase 
+- Ionic with React and Capacitor
+  - PWA app (iOS + Android + Web) from a single codebase 
   - Rich ecosystem for journal/text input features 
   - Good offline support for private journaling 
   - State Management: Zustand 
