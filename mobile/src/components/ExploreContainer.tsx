@@ -1,6 +1,7 @@
 import './ExploreContainer.css';
 
-interface ContainerProps { }
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface ContainerProps {}
 
 const ExploreContainer: React.FC<ContainerProps> = () => {
   return (

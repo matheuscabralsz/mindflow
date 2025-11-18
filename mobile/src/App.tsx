@@ -1,7 +1,14 @@
+import { useEffect } from 'react';
 import { Redirect, Route } from 'react-router-dom';
 import { IonApp, IonRouterOutlet, setupIonicReact } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import Home from './pages/Home';
+import { LoginPage } from './pages/auth/LoginPage';
+import { SignupPage } from './pages/auth/SignupPage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
+import { ProfilePage } from './pages/settings/ProfilePage';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { useAuthStore } from './store/authStore';
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';
@@ -35,19 +42,49 @@ import './theme';
 
 setupIonicReact();
 
-const App: React.FC = () => (
-  <IonApp>
-    <IonReactRouter>
-      <IonRouterOutlet>
-        <Route exact path="/home">
-          <Home />
-        </Route>
-        <Route exact path="/">
-          <Redirect to="/home" />
-        </Route>
-      </IonRouterOutlet>
-    </IonReactRouter>
-  </IonApp>
-);
+const App: React.FC = () => {
+  const initialize = useAuthStore((state) => state.initialize);
+
+  // Initialize auth state on app startup
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  return (
+    <IonApp>
+      <IonReactRouter>
+        <IonRouterOutlet>
+          {/* Public Routes */}
+          <Route exact path="/login">
+            <LoginPage />
+          </Route>
+          <Route exact path="/signup">
+            <SignupPage />
+          </Route>
+          <Route exact path="/forgot-password">
+            <ForgotPasswordPage />
+          </Route>
+
+          {/* Protected Routes */}
+          <Route exact path="/home">
+            <ProtectedRoute>
+              <Home />
+            </ProtectedRoute>
+          </Route>
+          <Route exact path="/profile">
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          </Route>
+
+          {/* Default Redirect */}
+          <Route exact path="/">
+            <Redirect to="/home" />
+          </Route>
+        </IonRouterOutlet>
+      </IonReactRouter>
+    </IonApp>
+  );
+};
 
 export default App;
