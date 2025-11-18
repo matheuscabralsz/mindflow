@@ -1,3 +1,4 @@
+import { useHistory } from 'react-router-dom';
 import {
   IonContent,
   IonHeader,
@@ -11,15 +12,23 @@ import {
   IonCardContent,
   IonButton,
   IonIcon,
+  IonButtons,
 } from '@ionic/react';
-import { checkmarkCircle } from 'ionicons/icons';
+import { checkmarkCircle, personCircle } from 'ionicons/icons';
 
 const Home: React.FC = () => {
+  const history = useHistory();
+
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar color="primary">
           <IonTitle>MindFlow</IonTitle>
+          <IonButtons slot="end">
+            <IonButton onClick={() => history.push('/profile')}>
+              <IonIcon slot="icon-only" icon={personCircle} />
+            </IonButton>
+          </IonButtons>
         </IonToolbar>
       </IonHeader>
       <IonContent className="ion-padding">

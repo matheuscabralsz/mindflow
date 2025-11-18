@@ -13,10 +13,10 @@ interface ProtectedRouteProps {
  * Redirects to login if not authenticated
  */
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { user, loading, initialized } = useAuthStore();
+  const { user, initialized } = useAuthStore();
 
-  // Show loading spinner while initializing auth
-  if (!initialized || loading) {
+  // Show loading spinner ONLY while initializing auth (first load)
+  if (!initialized) {
     return (
       <div
         style={{
@@ -37,5 +37,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   // Render children if authenticated
+  // Note: Children stay mounted even during loading states (profile updates, etc.)
   return <>{children}</>;
 };

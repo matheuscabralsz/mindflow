@@ -33,14 +33,17 @@ export const ProfilePage: React.FC = () => {
     display_name: '',
   });
   const [successMessage, setSuccessMessage] = useState('');
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Initialize profile data only once when component mounts
   useEffect(() => {
-    if (user?.profile) {
+    if (user?.profile && !isInitialized) {
       setProfileData({
         display_name: user.profile.display_name || '',
       });
+      setIsInitialized(true);
     }
-  }, [user]);
+  }, [user, isInitialized]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();

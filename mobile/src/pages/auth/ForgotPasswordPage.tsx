@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   IonContent,
@@ -22,7 +22,14 @@ import { useAuthStore } from '../../store/authStore';
 
 export const ForgotPasswordPage: React.FC = () => {
   const history = useHistory();
-  const { resetPassword, loading, error, clearError } = useAuthStore();
+  const { user, resetPassword, loading, error, clearError } = useAuthStore();
+
+  // Redirect to home if already authenticated
+  useEffect(() => {
+    if (user) {
+      history.replace('/home');
+    }
+  }, [user, history]);
 
   const [email, setEmail] = useState('');
   const [success, setSuccess] = useState(false);

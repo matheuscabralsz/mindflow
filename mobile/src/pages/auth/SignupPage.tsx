@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useHistory } from 'react-router-dom';
 import {
   IonContent,
@@ -21,7 +21,14 @@ import type { SignupCredentials } from '../../types/user.types';
 
 export const SignupPage: React.FC = () => {
   const history = useHistory();
-  const { signup, loading, error, clearError } = useAuthStore();
+  const { user, signup, loading, error, clearError } = useAuthStore();
+
+  // Redirect to home if already authenticated
+  useEffect(() => {
+    if (user) {
+      history.replace('/home');
+    }
+  }, [user, history]);
 
   const [credentials, setCredentials] = useState<SignupCredentials>({
     email: '',
