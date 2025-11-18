@@ -96,7 +96,7 @@ const App: React.FC = () => {
               <EntryEditorPage />
             </ProtectedRoute>
           </Route>
-          <Route exact path="/entries/:id">
+          <Route exact path="/entries/view/:id">
             <ProtectedRoute>
               <EntryDetailPage />
             </ProtectedRoute>

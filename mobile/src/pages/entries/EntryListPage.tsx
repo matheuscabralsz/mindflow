@@ -53,7 +53,7 @@ export const EntryListPage: React.FC = () => {
   };
 
   const handleEntryClick = (id: string) => {
-    history.push(`/entries/${id}`);
+    history.push(`/entries/view/${id}`);
   };
 
   const handleNewEntry = () => {
