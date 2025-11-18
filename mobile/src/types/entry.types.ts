@@ -9,12 +9,12 @@ export interface Entry {
   updated_at: string;
 }
 
-export interface CreateEntryDto {
+export interface CreateEntryData {
   content: string;
-  mood?: MoodType;
+  mood?: MoodType | null;
 }
 
-export interface UpdateEntryDto {
+export interface UpdateEntryData {
   content?: string;
-  mood?: MoodType;
+  mood?: MoodType | null;
 }

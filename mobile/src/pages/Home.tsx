@@ -14,7 +14,7 @@ import {
   IonIcon,
   IonButtons,
 } from '@ionic/react';
-import { checkmarkCircle, personCircle } from 'ionicons/icons';
+import { checkmarkCircle, personCircle, journalOutline, addCircleOutline } from 'ionicons/icons';
 
 const Home: React.FC = () => {
   const history = useHistory();
@@ -43,11 +43,29 @@ const Home: React.FC = () => {
                 icon={checkmarkCircle}
                 style={{ fontSize: '64px', color: '#10B981' }}
               />
-              <h2>Ionic + React Setup Complete!</h2>
-              <p>Your mobile app is ready to build.</p>
-              <IonButton expand="block" color="primary" style={{ marginTop: '20px' }}>
-                Get Started
-              </IonButton>
+              <h2>Start Journaling!</h2>
+              <p>Track your thoughts, moods, and daily experiences.</p>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                <IonButton
+                  expand="block"
+                  color="primary"
+                  onClick={() => history.push('/entries/new')}
+                  style={{ flex: 1 }}
+                >
+                  <IonIcon slot="start" icon={addCircleOutline} />
+                  New Entry
+                </IonButton>
+                <IonButton
+                  expand="block"
+                  fill="outline"
+                  color="primary"
+                  onClick={() => history.push('/entries')}
+                  style={{ flex: 1 }}
+                >
+                  <IonIcon slot="start" icon={journalOutline} />
+                  My Entries
+                </IonButton>
+              </div>
             </div>
           </IonCardContent>
         </IonCard>

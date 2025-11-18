@@ -7,6 +7,9 @@ import { LoginPage } from './pages/auth/LoginPage';
 import { SignupPage } from './pages/auth/SignupPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { ProfilePage } from './pages/settings/ProfilePage';
+import { EntryListPage } from './pages/entries/EntryListPage';
+import { EntryEditorPage } from './pages/entries/EntryEditorPage';
+import { EntryDetailPage } from './pages/entries/EntryDetailPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuthStore } from './store/authStore';
 
@@ -74,6 +77,28 @@ const App: React.FC = () => {
           <Route exact path="/profile">
             <ProtectedRoute>
               <ProfilePage />
+            </ProtectedRoute>
+          </Route>
+
+          {/* Entry Routes */}
+          <Route exact path="/entries">
+            <ProtectedRoute>
+              <EntryListPage />
+            </ProtectedRoute>
+          </Route>
+          <Route exact path="/entries/new">
+            <ProtectedRoute>
+              <EntryEditorPage />
+            </ProtectedRoute>
+          </Route>
+          <Route exact path="/entries/edit/:id">
+            <ProtectedRoute>
+              <EntryEditorPage />
+            </ProtectedRoute>
+          </Route>
+          <Route exact path="/entries/:id">
+            <ProtectedRoute>
+              <EntryDetailPage />
             </ProtectedRoute>
           </Route>
 
