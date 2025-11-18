@@ -76,7 +76,7 @@ WHERE tablename = 'entries';
 ```bash
 # mobile/src/types/entry.types.ts already exists, update it:
 cat > mobile/src/types/entry.types.ts << 'EOF'
-export type MoodType = 'happy' | 'sad' | 'anxious' | 'calm' | 'stressed';
+export type MoodType = 'happy' | 'sad' | 'anxious' | 'calm' | 'stressed' | 'neutral';
 
 export interface Entry {
   id: string;
@@ -150,6 +150,12 @@ EOF
 ## Step 3: Entries Service Layer (20 minutes)
 
 ### 3.1 Create Entries Service
+
+**Important Notes:**
+- This service uses Supabase client directly (no backend API needed)
+- Row-Level Security (RLS) automatically filters entries by authenticated user
+- No need to manually set `user_id` - RLS policies handle this via `auth.uid()`
+- All operations are secured at the database level
 
 ```bash
 # mobile/src/services/entries.service.ts
@@ -774,24 +780,27 @@ const EntryEditorPage: React.FC = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Initialize content only once when editing
   useEffect(() => {
-    if (isEditMode) {
-      // Fetch entry if editing
+    if (isEditMode && !isInitialized) {
       if (selectedEntry?.id !== id) {
         fetchEntry(id);
       } else {
         setContent(selectedEntry.content);
+        setIsInitialized(true);
       }
     }
-  }, [id, isEditMode, selectedEntry, fetchEntry]);
+  }, [id, isEditMode, selectedEntry, fetchEntry, isInitialized]);
 
+  // Update content when selected entry loads (only if not already initialized)
   useEffect(() => {
-    // Update content when selected entry changes
-    if (isEditMode && selectedEntry?.id === id) {
+    if (isEditMode && selectedEntry?.id === id && !isInitialized) {
       setContent(selectedEntry.content);
+      setIsInitialized(true);
     }
-  }, [selectedEntry, id, isEditMode]);
+  }, [selectedEntry, id, isEditMode, isInitialized]);
 
   const handleSave = async () => {
     if (!content.trim()) {
@@ -1189,16 +1198,16 @@ import '@ionic/react/css/palettes/dark.system.css';
 import './theme';
 
 /* Pages */
-import LoginPage from './pages/auth/LoginPage';
-import SignupPage from './pages/auth/SignupPage';
-import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
-import ProfilePage from './pages/ProfilePage';
+import { LoginPage } from './pages/auth/LoginPage';
+import { SignupPage } from './pages/auth/SignupPage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
+import { ProfilePage } from './pages/settings/ProfilePage';
 import EntriesListPage from './pages/entries/EntriesListPage';
 import EntryDetailPage from './pages/entries/EntryDetailPage';
 import EntryEditorPage from './pages/entries/EntryEditorPage';
 
 /* Components */
-import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 /* Store */
 import { useAuthStore } from './store/authStore';
@@ -1206,22 +1215,26 @@ import { useAuthStore } from './store/authStore';
 setupIonicReact();
 
 const App: React.FC = () => {
-  const { initialize, initialized } = useAuthStore();
+  const initialize = useAuthStore((state) => state.initialize);
 
   useEffect(() => {
-    if (!initialized) {
-      initialize();
-    }
-  }, [initialized, initialize]);
+    initialize();
+  }, [initialize]);
 
   return (
     <IonApp>
       <IonReactRouter>
         <IonRouterOutlet>
           {/* Public Routes */}
-          <Route exact path="/login" component={LoginPage} />
-          <Route exact path="/signup" component={SignupPage} />
-          <Route exact path="/forgot-password" component={ForgotPasswordPage} />
+          <Route exact path="/login">
+            <LoginPage />
+          </Route>
+          <Route exact path="/signup">
+            <SignupPage />
+          </Route>
+          <Route exact path="/forgot-password">
+            <ForgotPasswordPage />
+          </Route>
 
           {/* Protected Routes */}
           <Route exact path="/entries">
@@ -1866,6 +1879,63 @@ hasMore: (page + 1) * limit < (count || 0)
 ```typescript
 // Use autofocus prop and ensure no loading state blocks it
 <IonTextarea autofocus />
+```
+
+### Issue: Component re-renders/flashes during updates
+
+**Problem:** When updating an entry, the component unmounts and remounts, causing visual "flash"
+
+**Root Cause:**
+1. `loading` state in store changes during update
+2. Parent component (ProtectedRoute or useEffect) responds to loading changes
+3. Component unmounts/remounts
+
+**Solution:**
+```typescript
+// In components, use isInitialized flag to prevent re-initialization
+const [isInitialized, setIsInitialized] = useState(false);
+
+useEffect(() => {
+  if (isEditMode && !isInitialized) {
+    if (selectedEntry?.id !== id) {
+      fetchEntry(id);
+    } else {
+      setContent(selectedEntry.content);
+      setIsInitialized(true);
+    }
+  }
+}, [id, isEditMode, selectedEntry, fetchEntry, isInitialized]);
+
+// In ProtectedRoute, only check initialized, not loading
+if (!initialized) {
+  return <IonSpinner />;
+}
+```
+
+### Issue: TypeScript error - MoodType doesn't include 'neutral'
+
+**Problem:** Database has 6 mood values but TypeScript type only has 5
+
+**Solution:**
+```typescript
+// Include all moods from database enum (00_types.sql)
+export type MoodType = 'happy' | 'sad' | 'anxious' | 'calm' | 'stressed' | 'neutral';
+```
+
+### Issue: Import errors in App.tsx
+
+**Problem:** Auth page components use named exports, not default exports
+
+**Solution:**
+```typescript
+// Use named imports for auth pages
+import { LoginPage } from './pages/auth/LoginPage';
+import { SignupPage } from './pages/auth/SignupPage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
+import { ProfilePage } from './pages/settings/ProfilePage';
+
+// ProtectedRoute is in components/, not components/auth/
+import { ProtectedRoute } from './components/ProtectedRoute';
 ```
 
 ---
