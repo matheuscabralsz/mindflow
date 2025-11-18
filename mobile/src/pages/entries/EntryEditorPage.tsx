@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useHistory, useParams } from 'react-router-dom';
+import {useAuthStore} from '../../store/authStore';
 import {
   IonContent,
   IonPage,
@@ -30,8 +31,9 @@ export const EntryEditorPage: React.FC = () => {
 
   const { selectedEntry, loading, error, fetchEntry, createEntry, updateEntry } =
     useEntriesStore();
+    const { user } = useAuthStore();
 
-  const [content, setContent] = useState('');
+    const [content, setContent] = useState('');
   const [mood, setMood] = useState<MoodType | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
@@ -68,8 +70,9 @@ export const EntryEditorPage: React.FC = () => {
         await updateEntry(id, { content: content.trim(), mood });
         setSuccessMessage('Entry updated successfully!');
       } else {
-        await createEntry({ content: content.trim(), mood });
-        setSuccessMessage('Entry created successfully!');
+          if (!user?.id) return;
+          await createEntry({content: content.trim(), mood, user_id: user.id});
+          setSuccessMessage('Entry created successfully!');
       }
 
       setTimeout(() => {

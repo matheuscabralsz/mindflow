@@ -11,6 +11,7 @@ export interface Entry {
 
 export interface CreateEntryData {
   content: string;
+  user_id: string;
   mood?: MoodType | null;
 }
 
