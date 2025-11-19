@@ -43,6 +43,7 @@ export const MoodPicker: React.FC<MoodPickerProps> = ({
         {MOOD_OPTIONS.map((mood) => (
           <IonButton
             key={mood.value}
+            data-mood={mood.value}
             fill={selectedMood === mood.value ? 'solid' : 'outline'}
             color={selectedMood === mood.value ? 'primary' : 'medium'}
             onClick={() => onMoodSelect(mood.value)}

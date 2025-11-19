@@ -39,3 +39,8 @@ capacitor-config.json
 # Ionic
 .ionic/
 www/
+
+# Cypress
+cypress/videos/
+cypress/screenshots/
+cypress/downloads/

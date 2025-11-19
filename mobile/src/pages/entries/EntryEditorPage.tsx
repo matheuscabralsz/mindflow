@@ -15,7 +15,6 @@ import {
   IonButtons,
   IonBackButton,
   IonButton,
-  IonTextarea,
   IonSpinner,
   IonToast,
   IonText,
@@ -101,7 +100,7 @@ export const EntryEditorPage: React.FC = () => {
             <IonButton onClick={handleCancel} color="medium">
               Cancel
             </IonButton>
-            <IonButton onClick={handleSave} disabled={isContentEmpty || loading} strong>
+            <IonButton onClick={handleSave} disabled={loading} strong>
               {loading ? <IonSpinner name="crescent" /> : 'Save'}
             </IonButton>
           </IonButtons>
@@ -128,12 +127,12 @@ export const EntryEditorPage: React.FC = () => {
               <MoodPicker selectedMood={mood} onMoodSelect={setMood} disabled={loading} />
             </div>
 
-            <IonTextarea
+            <textarea
+              data-testid="entry-content"
               placeholder="What's on your mind?"
               value={content}
-              onIonInput={(e) => setContent(e.detail.value || '')}
+              onChange={(e) => setContent(e.target.value || '')}
               rows={15}
-              autoGrow
               disabled={loading}
               style={{
                 border: '1px solid var(--ion-color-medium)',
@@ -141,6 +140,9 @@ export const EntryEditorPage: React.FC = () => {
                 padding: '12px',
                 fontSize: '16px',
                 lineHeight: '1.6',
+                width: '100%',
+                fontFamily: 'inherit',
+                resize: 'vertical',
               }}
             />
 
