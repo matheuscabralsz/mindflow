@@ -25,24 +25,7 @@ import {
 import { createOutline, trashOutline } from 'ionicons/icons';
 import { format } from 'date-fns';
 import { useEntriesStore } from '../../store/entriesStore';
-
-const MOOD_EMOJI: Record<string, string> = {
-  happy: '😊',
-  sad: '😢',
-  anxious: '😰',
-  calm: '😌',
-  stressed: '😫',
-  neutral: '😐',
-};
-
-const MOOD_LABELS: Record<string, string> = {
-  happy: 'Happy',
-  sad: 'Sad',
-  anxious: 'Anxious',
-  calm: 'Calm',
-  stressed: 'Stressed',
-  neutral: 'Neutral',
-};
+import { getMoodEmoji, getMoodLabel } from '../../utils/moods';
 
 export const EntryDetailPage: React.FC = () => {
   const history = useHistory();
@@ -168,9 +151,9 @@ export const EntryDetailPage: React.FC = () => {
               </div>
               {selectedEntry.mood && (
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '36px' }}>{MOOD_EMOJI[selectedEntry.mood]}</div>
+                  <div style={{ fontSize: '36px' }}>{getMoodEmoji(selectedEntry.mood)}</div>
                   <IonText color="medium">
-                    <small>{MOOD_LABELS[selectedEntry.mood]}</small>
+                    <small>{getMoodLabel(selectedEntry.mood)}</small>
                   </IonText>
                 </div>
               )}

@@ -6,28 +6,13 @@
 import React from 'react';
 import { IonButton, IonButtons } from '@ionic/react';
 import type { MoodType } from '../../types';
+import { MOODS } from '../../utils/moods';
 
 interface MoodPickerProps {
   selectedMood: MoodType | null;
   onMoodSelect: (mood: MoodType | null) => void;
   disabled?: boolean;
 }
-
-interface MoodOption {
-  value: MoodType;
-  emoji: string;
-  label: string;
-  color: string;
-}
-
-const MOOD_OPTIONS: MoodOption[] = [
-  { value: 'happy', emoji: '😊', label: 'Happy', color: '#10B981' },
-  { value: 'sad', emoji: '😢', label: 'Sad', color: '#3B82F6' },
-  { value: 'anxious', emoji: '😰', label: 'Anxious', color: '#F59E0B' },
-  { value: 'calm', emoji: '😌', label: 'Calm', color: '#8B5CF6' },
-  { value: 'stressed', emoji: '😫', label: 'Stressed', color: '#EF4444' },
-  { value: 'neutral', emoji: '😐', label: 'Neutral', color: '#6B7280' },
-];
 
 export const MoodPicker: React.FC<MoodPickerProps> = ({
   selectedMood,
@@ -40,7 +25,7 @@ export const MoodPicker: React.FC<MoodPickerProps> = ({
         How are you feeling?
       </div>
       <IonButtons style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-        {MOOD_OPTIONS.map((mood) => (
+        {MOODS.map((mood) => (
           <IonButton
             key={mood.value}
             data-mood={mood.value}

@@ -29,15 +29,7 @@ import {
 import { add, personCircle } from 'ionicons/icons';
 import { format } from 'date-fns';
 import { useEntriesStore } from '../../store/entriesStore';
-
-const MOOD_EMOJI: Record<string, string> = {
-  happy: '😊',
-  sad: '😢',
-  anxious: '😰',
-  calm: '😌',
-  stressed: '😫',
-  neutral: '😐',
-};
+import { getMoodEmoji } from '../../utils/moods';
 
 export const EntryListPage: React.FC = () => {
   const history = useHistory();
@@ -138,7 +130,7 @@ export const EntryListPage: React.FC = () => {
               >
                 <IonCardTitle>{format(new Date(entry.created_at), 'PPP')}</IonCardTitle>
                 {entry.mood && (
-                  <span style={{ fontSize: '24px' }}>{MOOD_EMOJI[entry.mood]}</span>
+                  <span style={{ fontSize: '24px' }}>{getMoodEmoji(entry.mood)}</span>
                 )}
               </div>
               <IonCardSubtitle>{format(new Date(entry.created_at), 'p')}</IonCardSubtitle>

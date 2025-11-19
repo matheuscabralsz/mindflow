@@ -1171,110 +1171,141 @@ EOF
 
 ---
 
-## Step 10: Testing (20 minutes)
+## Step 10: Testing (15 minutes)
 
-### 10.1 Create Mood Tests
+### 10.1 Create E2E Mood Tracking Test
 
-```bash
-# mobile/src/utils/__tests__/moods.test.ts
-mkdir -p mobile/src/utils/__tests__
-cat > mobile/src/utils/__tests__/moods.test.ts << 'EOF'
-import { describe, it, expect } from 'vitest';
-import { MOODS, getMoodConfig, getMoodEmoji, getMoodLabel, getMoodColor } from '../moods';
-
-describe('Mood Utils', () => {
-  it('should have 5 mood configurations', () => {
-    expect(MOODS).toHaveLength(5);
-  });
-
-  it('should get mood config by value', () => {
-    const config = getMoodConfig('happy');
-    expect(config).toBeDefined();
-    expect(config?.value).toBe('happy');
-    expect(config?.emoji).toBe('😊');
-  });
-
-  it('should return null for invalid mood', () => {
-    const config = getMoodConfig('invalid' as any);
-    expect(config).toBeNull();
-  });
-
-  it('should get mood emoji', () => {
-    expect(getMoodEmoji('happy')).toBe('😊');
-    expect(getMoodEmoji('sad')).toBe('😢');
-    expect(getMoodEmoji(null)).toBe('');
-  });
-
-  it('should get mood label', () => {
-    expect(getMoodLabel('happy')).toBe('Happy');
-    expect(getMoodLabel('anxious')).toBe('Anxious');
-    expect(getMoodLabel(null)).toBe('');
-  });
-
-  it('should get mood color', () => {
-    expect(getMoodColor('happy')).toBe('#FFD700');
-    expect(getMoodColor(null)).toBe('#gray');
-  });
-});
-EOF
-```
-
-### 10.2 Create E2E Mood Test
+This test covers the critical path: create entry with mood, view it, edit mood, verify changes, and delete.
 
 ```bash
 # mobile/cypress/e2e/mood-tracking.cy.ts
 cat > mobile/cypress/e2e/mood-tracking.cy.ts << 'EOF'
-describe('Mood Tracking', () => {
+/**
+ * Mood Tracking E2E Test
+ * Tests the critical mood tracking flow: create with mood -> view -> edit mood -> delete
+ */
+
+describe('Mood Tracking Critical Flow', () => {
+  const testUser = {
+    email: 'test@mindflow.com',
+    password: 'TestPassword123!',
+  };
+
+  const testEntry = {
+    content: 'Testing mood tracking functionality with this journal entry.',
+    initialMood: 'happy',
+    updatedMood: 'calm',
+  };
+
   beforeEach(() => {
-    // Login first
-    cy.visit('/login');
-    cy.get('input[type="email"]').type('test@example.com');
-    cy.get('input[type="password"]').type('password123');
-    cy.contains('button', 'Login').click();
-    cy.url().should('include', '/entries');
+    cy.clearLocalStorage();
+    cy.clearCookies();
   });
 
-  it('should create entry with mood', () => {
-    // Create new entry
-    cy.get('ion-fab-button').click();
+  it('should complete mood tracking flow: create with mood, view, edit mood, delete', () => {
+    // Step 1: Login
+    cy.log('Step 1: Login');
+    cy.visit('/login');
+    cy.wait(500);
 
-    // Select mood
-    cy.contains('Happy').click();
+    cy.get('ion-input[type="email"]').find('input').type(testUser.email, { force: true });
+    cy.get('ion-input[type="password"]').find('input').type(testUser.password, { force: true });
+    cy.get('ion-button[type="submit"]').click();
+
+    cy.url().should('include', '/home', { timeout: 10000 });
+
+    // Step 2: Create entry with mood
+    cy.log('Step 2: Create entry with initial mood (happy)');
+    cy.visit('/entries/new');
+    cy.wait(3000);
+
+    cy.contains('New Entry').should('be.visible');
+
+    // Select initial mood (happy)
+    cy.get(`ion-button[data-mood="${testEntry.initialMood}"]`).then($buttons => {
+      $buttons.get($buttons.length - 1).click();
+    });
 
     // Type content
-    cy.get('ion-textarea').type('Feeling great today!');
+    cy.get('textarea[data-testid="entry-content"]').clear().type(testEntry.content, { force: true });
+    cy.wait(500);
 
-    // Save
-    cy.contains('button', 'Save').click();
+    // Save entry
+    cy.get('ion-button').contains('Save').click({ force: true });
 
-    // Should see mood badge on entry card
-    cy.get('.mood-badge').should('exist');
-  });
+    cy.url().should('include', '/entries', { timeout: 10000 });
+    cy.url().should('not.include', '/new');
+    cy.wait(2000);
 
-  it('should filter entries by mood', () => {
-    // Click mood filter chip
-    cy.contains('ion-chip', 'Happy').click();
+    // Step 3: Verify mood displays on entry card
+    cy.log('Step 3: Verify mood displays on entry list');
+    cy.visit('/entries');
+    cy.wait(1000);
 
-    // Should only show happy entries
-    // (This test assumes you have entries with different moods)
-  });
+    // Should see mood emoji on the entry card (😊 for happy)
+    cy.get('ion-card').first().should('contain', '😊');
 
-  it('should change mood when editing', () => {
-    // Open first entry
-    cy.get('.entry-card').first().click();
+    // Step 4: View entry detail and verify mood
+    cy.log('Step 4: View entry detail and verify mood display');
+    cy.get('ion-card').first().click();
+    cy.url().should('match', /\/entries\/view\/[a-zA-Z0-9-]+/);
+    cy.wait(1000);
 
-    // Edit
-    cy.get('ion-button[aria-label="more"]').click();
-    cy.contains('Edit').click();
+    // Should see mood emoji and label on detail page
+    cy.contains('😊').should('be.visible');
+    cy.contains('Happy').should('be.visible');
 
-    // Change mood
-    cy.contains('Calm').click();
+    // Step 5: Edit entry and change mood
+    cy.log('Step 5: Edit entry and change mood to calm');
+    cy.get('ion-button').contains('ion-icon', { timeout: 5000 }).first().click(); // Edit button
+    cy.url().should('match', /\/entries\/edit\/[a-zA-Z0-9-]+/);
+    cy.wait(2000);
 
-    // Save
-    cy.contains('button', 'Save').click();
+    // Change mood to calm
+    cy.get(`ion-button[data-mood="${testEntry.updatedMood}"]`).then($buttons => {
+      $buttons.get($buttons.length - 1).click();
+    });
+    cy.wait(500);
 
-    // Should see updated mood
+    // Save changes
+    cy.get('ion-button').contains('Save').click({ force: true });
+    cy.url().should('include', '/entries', { timeout: 10000 });
+    cy.wait(2000);
+
+    // Step 6: Verify updated mood displays
+    cy.log('Step 6: Verify updated mood displays on entry');
+    cy.visit('/entries');
+    cy.wait(1000);
+
+    // Should see updated mood emoji (😌 for calm)
+    cy.get('ion-card').first().should('contain', '😌');
+    cy.get('ion-card').first().click();
+    cy.wait(1000);
+
+    // Verify on detail page
+    cy.contains('😌').should('be.visible');
     cy.contains('Calm').should('be.visible');
+
+    // Step 7: Delete entry
+    cy.log('Step 7: Delete entry');
+    cy.get('ion-button[color="danger"]').click();
+    cy.get('ion-alert').should('be.visible');
+    cy.get('ion-alert button').contains('Delete').click();
+
+    cy.url().should('include', '/entries', { timeout: 5000 });
+    cy.url().should('not.match', /\/view\//);
+    cy.wait(2000);
+
+    // Step 8: Logout
+    cy.log('Step 8: Logout');
+    cy.visit('/profile');
+    cy.wait(500);
+
+    cy.get('ion-button[color="danger"]').contains('Logout').click();
+    cy.url().should('include', '/login');
+    cy.wait(500);
+
+    cy.contains('Welcome to MindFlow').should('be.visible');
   });
 });
 EOF
