@@ -10,7 +10,9 @@
 - Phase 1 complete (Foundation & Infrastructure)
 - Phase 2 complete (User Authentication)
 - Phase 3 complete (Core Journal CRUD)
+- Phase 4 complete (Mood Tracking) - MoodFilter component required
 - PostgreSQL full-text search index already exists (idx_entries_search)
+- date-fns library installed (`npm install date-fns`)
 
 **What You'll Have At The End:**
 - Search bar with real-time search
@@ -58,7 +60,7 @@ LIMIT 10;
 ```bash
 # Update mobile/src/types/entry.types.ts
 cat > mobile/src/types/entry.types.ts << 'EOF'
-export type MoodType = 'happy' | 'sad' | 'anxious' | 'calm' | 'stressed';
+export type MoodType = 'happy' | 'sad' | 'anxious' | 'calm' | 'stressed' | 'neutral';
 
 export interface Entry {
   id: string;
@@ -104,100 +106,68 @@ export interface SearchResult extends Entry {
 EOF
 ```
 
-### 2.2 Create Search Types
-
-```bash
-# mobile/src/types/search.types.ts
-cat > mobile/src/types/search.types.ts << 'EOF'
-export interface SearchQuery {
-  query: string;
-  filters?: {
-    mood?: string;
-    startDate?: Date;
-    endDate?: Date;
-  };
-}
-
-export interface SearchHistoryItem {
-  query: string;
-  timestamp: Date;
-}
-
-export interface SearchState {
-  query: string;
-  results: any[];
-  loading: boolean;
-  error: string | null;
-  recentSearches: string[];
-}
-EOF
-```
-
 ---
 
 ## Step 3: Update Entries Service with Search (20 minutes)
 
 ### 3.1 Enhance Entries Service
 
-```bash
-# Update mobile/src/services/entries.service.ts
-# Add search-specific method:
+Add the following method to your entries service (mobile/src/services/entries.service.ts):
 
-cat >> mobile/src/services/entries.service.ts << 'EOF'
+```typescript
+/**
+ * Search entries using full-text search
+ */
+async searchEntries(
+  searchQuery: string,
+  page: number = 0,
+  limit: number = 20,
+  filters?: EntryFilters
+): Promise<EntriesResponse> {
+  // Build the full-text search query
+  // PostgreSQL to_tsquery requires special format
+  const tsQuery = searchQuery
+    .trim()
+    .split(/\s+/)
+    .filter(word => word.length > 0)
+    .join(' & ');
 
-  /**
-   * Search entries using full-text search
-   */
-  async searchEntries(
-    searchQuery: string,
-    page: number = 0,
-    limit: number = 20,
-    filters?: EntryFilters
-  ) {
-    // Build the full-text search query
-    // PostgreSQL to_tsquery requires special format
-    const tsQuery = searchQuery
-      .trim()
-      .split(/\s+/)
-      .filter(word => word.length > 0)
-      .join(' & ');
+  let query = supabase
+    .from('entries')
+    .select('*', { count: 'exact' })
+    .textSearch('content', tsQuery, {
+      type: 'websearch',
+      config: 'english',
+    })
+    .order('created_at', { ascending: false })
+    .range(page * limit, (page + 1) * limit - 1);
 
-    let query = supabase
-      .from('entries')
-      .select('*', { count: 'exact' })
-      .textSearch('content', tsQuery, {
-        type: 'websearch',
-        config: 'english',
-      })
-      .order('created_at', { ascending: false })
-      .range(page * limit, (page + 1) * limit - 1);
+  // Apply additional filters
+  if (filters?.mood) {
+    query = query.eq('mood', filters.mood);
+  }
 
-    // Apply additional filters
-    if (filters?.mood) {
-      query = query.eq('mood', filters.mood);
-    }
+  if (filters?.startDate) {
+    query = query.gte('created_at', filters.startDate.toISOString());
+  }
 
-    if (filters?.startDate) {
-      query = query.gte('created_at', filters.startDate.toISOString());
-    }
+  if (filters?.endDate) {
+    query = query.lte('created_at', filters.endDate.toISOString());
+  }
 
-    if (filters?.endDate) {
-      query = query.lte('created_at', filters.endDate.toISOString());
-    }
+  const { data, error, count } = await query;
 
-    const { data, error, count } = await query;
+  if (error) throw error;
 
-    if (error) throw error;
-
-    return {
-      entries: data as Entry[],
-      total: count || 0,
-      hasMore: (page + 1) * limit < (count || 0),
-    };
-  },
-};
-EOF
+  return {
+    entries: data as Entry[],
+    total: count || 0,
+    hasMore: (page + 1) * limit < (count || 0),
+  };
+}
 ```
+
+**Note:** Add this method inside your entriesService object, before the closing brace.
 
 ---
 
@@ -760,7 +730,7 @@ import { DateRangeFilter } from '../../components/search/DateRangeFilter';
 import { MoodFilter } from '../../components/entries/MoodFilter';
 import { entriesService } from '../../services/entries.service';
 import { highlightSearchTerms, saveRecentSearch } from '../../utils/search';
-import type { Entry, MoodType } from '../../types';
+import type { Entry, MoodType } from '../../types/entry.types';
 import './SearchPage.css';
 
 const SearchPage: React.FC = () => {
@@ -816,7 +786,7 @@ const SearchPage: React.FC = () => {
   };
 
   const handleEntryClick = (id: string) => {
-    history.push(`/entries/${id}`);
+    history.push(`/entries/view/${id}`);
   };
 
   return (
@@ -995,13 +965,13 @@ import SearchPage from './pages/search/SearchPage';
 ### 8.2 Add Search Button to Entries List
 
 ```bash
-# Update mobile/src/pages/entries/EntriesListPage.tsx
+# Update mobile/src/pages/entries/EntryListPage.tsx
 # Import search icon
 import { add, personCircleOutline, searchOutline } from 'ionicons/icons';
 
 # Add search button to header
 <IonButtons slot="end">
-  <IonButton onClick={() => history.push('/search')}>
+  <IonButton onClick={() => history.push('/search')} aria-label="search">
     <IonIcon slot="icon-only" icon={searchOutline} />
   </IonButton>
   <IonButton onClick={() => history.push('/profile')}>
@@ -1012,118 +982,9 @@ import { add, personCircleOutline, searchOutline } from 'ionicons/icons';
 
 ---
 
-## Step 9: Backend Search Optimization (Optional - 15 minutes)
+## Step 9: Testing (25 minutes)
 
-### 9.1 Create Search Controller
-
-```bash
-# backend/src/controllers/search.controller.ts
-cat > backend/src/controllers/search.controller.ts << 'EOF'
-import { Request, Response } from 'express';
-import { supabase } from '../database/supabase';
-
-/**
- * POST /search
- * Search entries with full-text search and filters
- */
-export const searchEntries = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user!.id;
-    const { query, mood, startDate, endDate, page = 0, limit = 20 } = req.body;
-
-    if (!query || query.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Search query is required',
-      });
-    }
-
-    // Build PostgreSQL tsquery
-    const tsQuery = query
-      .trim()
-      .split(/\s+/)
-      .filter((word: string) => word.length > 0)
-      .join(' & ');
-
-    let dbQuery = supabase
-      .from('entries')
-      .select('*', { count: 'exact' })
-      .eq('user_id', userId)
-      .textSearch('content', tsQuery, {
-        type: 'websearch',
-        config: 'english',
-      })
-      .order('created_at', { ascending: false })
-      .range(Number(page) * Number(limit), (Number(page) + 1) * Number(limit) - 1);
-
-    // Apply filters
-    if (mood) {
-      dbQuery = dbQuery.eq('mood', mood);
-    }
-
-    if (startDate) {
-      dbQuery = dbQuery.gte('created_at', startDate);
-    }
-
-    if (endDate) {
-      dbQuery = dbQuery.lte('created_at', endDate);
-    }
-
-    const { data, error, count } = await dbQuery;
-
-    if (error) throw error;
-
-    res.json({
-      success: true,
-      data: {
-        results: data,
-        total: count,
-        page: Number(page),
-        limit: Number(limit),
-        hasMore: (Number(page) + 1) * Number(limit) < (count || 0),
-      },
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-};
-EOF
-```
-
-### 9.2 Create Search Routes
-
-```bash
-# backend/src/routes/search.routes.ts
-cat > backend/src/routes/search.routes.ts << 'EOF'
-import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.middleware';
-import { searchEntries } from '../controllers/search.controller';
-
-const router = Router();
-
-router.post('/', requireAuth, searchEntries);
-
-export default router;
-EOF
-```
-
-### 9.3 Update Routes Index
-
-```bash
-# Add to backend/src/routes/index.ts
-import searchRoutes from './search.routes';
-
-router.use('/search', searchRoutes);
-```
-
----
-
-## Step 10: Testing (25 minutes)
-
-### 10.1 Create Search Tests
+### 9.1 Create Search Tests
 
 ```bash
 # mobile/src/utils/__tests__/search.test.ts
@@ -1176,7 +1037,7 @@ describe('Search Utils', () => {
 EOF
 ```
 
-### 10.2 Create E2E Search Test
+### 9.2 Create E2E Search Test
 
 ```bash
 # mobile/cypress/e2e/search.cy.ts
@@ -1243,9 +1104,9 @@ EOF
 
 ---
 
-## Step 11: Manual Testing Checklist (15 minutes)
+## Step 10: Manual Testing Checklist (15 minutes)
 
-### 11.1 Test Search Functionality
+### 10.1 Test Search Functionality
 
 ```bash
 # 1. Navigate to /search
@@ -1256,7 +1117,7 @@ EOF
 # 6. Verify navigates to correct entry
 ```
 
-### 11.2 Test Filters
+### 10.2 Test Filters
 
 ```bash
 # 1. Search with mood filter
@@ -1266,7 +1127,7 @@ EOF
 # 5. Clear all filters
 ```
 
-### 11.3 Test Recent Searches
+### 10.3 Test Recent Searches
 
 ```bash
 # 1. Perform several searches
@@ -1279,9 +1140,9 @@ EOF
 
 ---
 
-## Step 12: Performance Testing (10 minutes)
+## Step 11: Performance Testing (10 minutes)
 
-### 12.1 Test Search Performance
+### 11.1 Test Search Performance
 
 ```sql
 -- In Supabase Dashboard → SQL Editor:
@@ -1299,31 +1160,18 @@ LIMIT 20;
 -- Should complete in < 100ms
 ```
 
-### 12.2 Benchmark with Large Dataset
+### 11.2 Test with Large Dataset
 
-```bash
-# Create test entries
-for i in {1..1000}; do
-  curl -X POST http://localhost:3000/entries \
-    -H "Authorization: Bearer $TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "{\"content\": \"Test entry $i with various keywords\"}"
-done
-
-# Test search performance
-time curl -X POST http://localhost:3000/search \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "test keywords", "page": 0, "limit": 20}'
-
-# Should complete in < 500ms
-```
+You can test search performance by creating multiple test entries through the app and verifying that:
+- Search results appear in < 500ms
+- The GIN index is being used (check with EXPLAIN ANALYZE)
+- Pagination works correctly with large result sets
 
 ---
 
-## Step 13: Quality Gates Checklist
+## Step 12: Quality Gates Checklist
 
-### 13.1 Functional Requirements
+### 12.1 Functional Requirements
 
 - [ ] Keyword search returns relevant entries
 - [ ] Full-text search performance < 500ms
@@ -1333,7 +1181,7 @@ time curl -X POST http://localhost:3000/search \
 - [ ] Recent searches are stored and displayed
 - [ ] Combined filters work correctly
 
-### 13.2 Technical Requirements
+### 12.2 Technical Requirements
 
 - [ ] PostgreSQL full-text search index is used
 - [ ] Search handles special characters
@@ -1342,7 +1190,7 @@ time curl -X POST http://localhost:3000/search \
 - [ ] Unit tests pass
 - [ ] E2E tests pass
 
-### 13.3 UX Requirements
+### 12.3 UX Requirements
 
 - [ ] Search is responsive and fast
 - [ ] Highlights are clearly visible
@@ -1400,11 +1248,12 @@ You now have:
 
 **Estimated Total Time:** 3-4 hours
 **Complexity:** Moderate
-**Prerequisites:** Phases 1, 2, 3 complete
+**Prerequisites:** Phases 1, 2, 3, 4 complete
 
 **Deliverables:**
 ✅ Search bar UI component
 ✅ Date filter component
 ✅ Search results screen with highlighting
-✅ Optimized search API endpoint
-✅ Full-text search indexes
+✅ Full-text search using Supabase
+✅ Search utilities (highlighting, recent searches)
+✅ E2E tests for search functionality
