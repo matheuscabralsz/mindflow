@@ -19,3 +19,21 @@ export interface UpdateEntryData {
   content?: string;
   mood?: MoodType | null;
 }
+
+export interface EntryFilters {
+  mood?: MoodType;
+  startDate?: Date;
+  endDate?: Date;
+  search?: string;
+}
+
+export interface EntriesResponse {
+  entries: Entry[];
+  total: number;
+  hasMore: boolean;
+}
+
+export interface SearchResult extends Entry {
+  rank?: number;
+  highlights?: string[];
+}

@@ -1,0 +1,11 @@
+.mood-filter {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.mood-filter ion-chip {
+  cursor: pointer;
+  font-size: 14px;
+}

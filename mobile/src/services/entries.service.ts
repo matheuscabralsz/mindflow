@@ -10,7 +10,7 @@
  */
 
 import { supabase } from './supabase';
-import type { Entry, CreateEntryData, UpdateEntryData } from '../types';
+import type { Entry, CreateEntryData, UpdateEntryData, EntryFilters, EntriesResponse } from '../types';
 
 /**
  * Fetch all entries for the authenticated user
@@ -122,22 +122,96 @@ export async function deleteEntry(id: string): Promise<void> {
 }
 
 /**
- * Search entries by content (case-insensitive)
- * @param searchTerm - Text to search for
+ * Search entries using full-text search with optional filters
+ * @param searchQuery - Search query string
+ * @param page - Page number (0-indexed)
+ * @param limit - Number of results per page
+ * @param filters - Optional filters (mood, date range)
  */
-export async function searchEntries(searchTerm: string): Promise<Entry[]> {
-  const { data, error } = await supabase
+export async function searchEntries(
+  searchQuery: string,
+  page: number = 0,
+  limit: number = 20,
+  filters?: EntryFilters
+): Promise<EntriesResponse> {
+  // If no search query, use regular filtering
+  if (!searchQuery.trim()) {
+    let query = supabase
+      .from('entries')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(page * limit, (page + 1) * limit - 1);
+
+    // Apply filters
+    if (filters?.mood) {
+      query = query.eq('mood', filters.mood);
+    }
+
+    if (filters?.startDate) {
+      query = query.gte('created_at', filters.startDate.toISOString());
+    }
+
+    if (filters?.endDate) {
+      query = query.lte('created_at', filters.endDate.toISOString());
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error('Error fetching entries:', error);
+      throw new Error('Failed to fetch entries');
+    }
+
+    return {
+      entries: data || [],
+      total: count || 0,
+      hasMore: (page + 1) * limit < (count || 0),
+    };
+  }
+
+  // Build the full-text search query
+  // PostgreSQL to_tsquery requires special format
+  const tsQuery = searchQuery
+    .trim()
+    .split(/\s+/)
+    .filter(word => word.length > 0)
+    .join(' & ');
+
+  let query = supabase
     .from('entries')
-    .select('*')
-    .ilike('content', `%${searchTerm}%`)
-    .order('created_at', { ascending: false });
+    .select('*', { count: 'exact' })
+    .textSearch('content', tsQuery, {
+      type: 'websearch',
+      config: 'english',
+    })
+    .order('created_at', { ascending: false })
+    .range(page * limit, (page + 1) * limit - 1);
+
+  // Apply additional filters
+  if (filters?.mood) {
+    query = query.eq('mood', filters.mood);
+  }
+
+  if (filters?.startDate) {
+    query = query.gte('created_at', filters.startDate.toISOString());
+  }
+
+  if (filters?.endDate) {
+    query = query.lte('created_at', filters.endDate.toISOString());
+  }
+
+  const { data, error, count } = await query;
 
   if (error) {
     console.error('Error searching entries:', error);
     throw new Error('Failed to search entries');
   }
 
-  return data || [];
+  return {
+    entries: data || [],
+    total: count || 0,
+    hasMore: (page + 1) * limit < (count || 0),
+  };
 }
 
 /**

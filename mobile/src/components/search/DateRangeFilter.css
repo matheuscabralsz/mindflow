@@ -1,0 +1,10 @@
+.date-range-presets {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.date-range-presets ion-button {
+  font-size: 14px;
+}

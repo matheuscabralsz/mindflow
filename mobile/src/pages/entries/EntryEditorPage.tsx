@@ -86,8 +86,6 @@ export const EntryEditorPage: React.FC = () => {
     history.goBack();
   };
 
-  const isContentEmpty = !content.trim();
-
   return (
     <IonPage>
       <IonHeader>
