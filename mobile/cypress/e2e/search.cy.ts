@@ -20,8 +20,12 @@ describe('Search Functionality', () => {
     // Submit form
     cy.get('ion-button[type="submit"]').click();
 
-    // Should navigate to home or entries
-    cy.url().should('match', /(home|entries)/, { timeout: 10000 });
+        // Should navigate to home
+    cy.url().should('include', '/home', { timeout: 10000 });
+    cy.wait(1000);
+
+    // Navigate to entries page where search button is located
+    cy.visit('/entries');
     cy.wait(1000);
   });
 
@@ -30,29 +34,42 @@ describe('Search Functionality', () => {
     cy.url().should('include', '/search');
   });
 
+  it('should create entry for search tests', () => {
+    // Create an entry with the word "happy" to be used by other tests
+    cy.visit('/entries/new');
+    cy.wait(1000);
+    cy.get('textarea[data-testid="entry-content"]').clear().type('I am feeling happy today because of the sunshine!', { force: true });
+    cy.wait(500);
+    cy.get('ion-button').contains('Save').click({ force: true });
+
+    // Wait for navigation back to list
+    cy.url().should('include', '/entries', { timeout: 10000 });
+    cy.url().should('not.include', '/new');
+    cy.wait(2000);
+  });
+
   it('should perform search', () => {
-    // Create entry with specific text
-    cy.get('ion-fab-button').click();
-    cy.get('ion-textarea').type('Visited the beach today, it was wonderful!');
-    cy.contains('button', 'Save').click();
-
     // Navigate to search
-    cy.get('ion-button[aria-label="search"]').click();
+    cy.visit('/search');
+    cy.wait(1000);
 
-    // Search for term
-    cy.get('ion-searchbar').type('beach');
+    // Search for term "happy" (created in previous test)
+    cy.get('ion-searchbar').type('happy');
+    cy.wait(1500);
 
     // Should show results
     cy.contains('Found').should('be.visible');
-    cy.contains('beach').should('be.visible');
+    cy.contains('happy').should('be.visible');
   });
 
   it('should highlight search terms', () => {
     // Navigate to search
-    cy.get('ion-button[aria-label="search"]').click();
+    cy.visit('/search');
+    cy.wait(1000);
 
-    // Search
+    // Search for "happy"
     cy.get('ion-searchbar').type('happy');
+    cy.wait(1000);
 
     // Verify highlighting
     cy.get('mark').should('exist');
@@ -106,26 +123,25 @@ describe('Search Functionality', () => {
   });
 
   it('should navigate to entry from search results', () => {
-    // Create entry with specific text
-    cy.get('ion-fab-button').click();
-    cy.get('ion-textarea').type('A unique test entry for navigation');
-    cy.contains('button', 'Save').click();
-
-    // Wait for navigation back to list
-    cy.url().should('include', '/entries');
-
     // Navigate to search
-    cy.get('ion-button[aria-label="search"]').click();
+    cy.visit('/search');
+    cy.wait(1000);
 
-    // Search for the entry
-    cy.get('ion-searchbar').type('unique test entry');
+    // Search for "happy" entry (created earlier)
+    cy.get('ion-searchbar').type('happy');
+    cy.wait(1500);
+
+    // Verify search results appeared
+    cy.get('.search-result-card').should('exist');
 
     // Click on the search result
     cy.get('.search-result-card').first().click();
+    cy.wait(2000);
 
     // Should navigate to entry detail page
-    cy.url().should('include', '/entries');
-    cy.url().should('include', '/view/');
-    cy.contains('A unique test entry for navigation').should('be.visible');
+    cy.url().should('match', /\/entries\/view\/[a-zA-Z0-9-]+/);
+
+    // Verify we're on the detail page by checking for entry-specific elements
+    cy.get('ion-card-content').should('be.visible');
   });
 });

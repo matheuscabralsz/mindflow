@@ -77,7 +77,7 @@ const SearchPage: React.FC = () => {
   };
 
   const handleEntryClick = (id: string) => {
-    history.push(`/entries/${id}/view`);
+    history.push(`/entries/view/${id}`);
   };
 
   return (
