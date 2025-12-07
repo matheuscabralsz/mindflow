@@ -5,7 +5,9 @@ An AI-powered mobile journal app that helps users write daily journal entries, t
 ## Project Structure
 
 - `mobile/` - Ionic + React + Vite app (iOS + Android via Capacitor)
-- `supabase/` - Database migrations (Supabase CLI)
+- `supabase/` - Database files
+  - `schemas/` - Source of truth schema files organized by entity (what you edit)
+  - `migrations/` - Timestamped migration files (generated via `db diff`, applied via `db push`)
 - `docs/` - Documentation
 
 ## Quick Start
