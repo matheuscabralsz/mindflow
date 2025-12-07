@@ -113,26 +113,6 @@ See `docs/initial-idea.md` for project vision and requirements.
 
 ## Code Standards
 
-### TypeScript
-
-**Strict mode enabled.** Use interfaces for object shapes, types for unions.
-
-```typescript
-// Interfaces for objects
-interface Entry {
-  id: string;
-  user_id: string;
-  content: string;
-  mood: MoodType | null;
-  created_at: string;
-}
-
-// Types for unions
-type MoodType = 'happy' | 'sad' | 'anxious' | 'calm' | 'stressed' | 'neutral';
-```
-
-**Example:** See `mobile/src/utils/moods.ts:1` for complete mood system implementation.
-
 ### Ionic + React Patterns
 
 **Page Components:**
@@ -158,45 +138,6 @@ export const useEntriesStore = create<EntriesStore>((set) => ({
 }));
 ```
 
-### Service Layer (Frontend → Supabase)
-
-```typescript
-// mobile/src/services/entries.service.ts
-export async function getAllEntries(): Promise<Entry[]> {
-  const { data, error } = await supabase
-    .from('entries')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (error) throw new Error('Failed to fetch entries');
-  return data || [];
-}
-```
-
-**Note:** RLS automatically filters by `auth.uid()` - no need to pass user_id
-
-### Naming Conventions
-
-- **Files:** PascalCase for components (`EntryCard.tsx`), camelCase for services (`entries.service.ts`)
-- **Variables/Functions:** camelCase (`getUserEntries`, `handleSubmit`)
-- **Constants:** UPPER_SNAKE_CASE (`API_BASE_URL`)
-- **Components/Types:** PascalCase (`EntryCard`, `Entry`)
-
-### Import Organization
-
-```typescript
-// 1. External libraries
-import React, { useState } from 'react';
-import { IonPage, IonContent } from '@ionic/react';
-
-// 2. Internal modules
-import { useEntries } from '../hooks/useEntries';
-import { EntryCard } from '../components/entries/EntryCard';
-
-// 3. Types
-import type { Entry } from '../types/entry.types';
-```
-
 ---
 
 ## Best Practices
@@ -215,97 +156,6 @@ CREATE POLICY "Users can only access their own entries"
 ON entries FOR ALL USING (auth.uid() = user_id);
 ```
 
-**Input Validation:**
-```typescript
-import { z } from 'zod';
-
-const createEntrySchema = z.object({
-  content: z.string().min(1).max(10000),
-  mood: z.enum(['happy', 'sad', 'anxious', 'calm', 'stressed', 'neutral']).nullable(),
-});
-```
-
-**Data Protection:**
-- Never log passwords, tokens, or API keys
-- Use `.env` for secrets (never commit)
-- HTTPS for all API calls
-
-### Performance
-
-**Mobile App:**
-- App launch: < 3 seconds
-- Entry list: < 1 second (use pagination)
-- Animations: 60fps (CSS transitions, Ionic animations)
-- Bundle size: < 2MB JS bundle
-
-**Database:**
-```sql
--- Essential indexes
-CREATE INDEX idx_entries_user_id ON entries(user_id);
-CREATE INDEX idx_entries_created_at ON entries(created_at DESC);
-CREATE INDEX idx_entries_mood ON entries(mood);
-```
-
-**Caching:**
-- Frontend: Cache entries in Zustand + Capacitor Storage
-- Backend (Phase 6+): Cache AI summaries for 24 hours
-
-### Error Handling
-
-```typescript
-try {
-  setLoading(true);
-  const entry = await entriesService.create(data);
-  useEntriesStore.getState().addEntry(entry);
-  navigation.navigate('EntryDetail', { id: entry.id });
-} catch (error) {
-  console.error('Failed to create entry:', error);
-  // Show user-friendly error
-} finally {
-  setLoading(false);
-}
-```
-
----
-
-## Testing
-
-**Unit Tests (80%+ coverage):**
-- Services, utils, state management
-- Run: `npm run test.unit`
-
-**E2E Tests (Cypress):**
-- Critical flows: Sign up → Create entry → View entry
-- Example: `mobile/cypress/e2e/mood-tracking.cy.ts:1`
-- Run: `npx cypress open` (interactive) or `npm run test.e2e` (headless)
-
-**Quality Gates (Before Marking Phase Complete):**
-1. All tests pass
-2. `npm run build` succeeds
-3. No TypeScript errors (`npx tsc --noEmit`)
-4. ESLint passes (`npm run lint`)
-5. Manual testing on iOS and Android
-
----
-
-## Feature Implementation Workflow
-
-### Before Starting
-1. Read phase description in `docs/phases/phase-0X-detailed.md`
-2. Check prerequisites are complete
-3. Review `docs/initial-idea.md` for requirements
-
-### During Implementation
-1. Follow project structure
-2. Write tests alongside code (TDD)
-3. Test frequently on iOS and Android
-4. Document complex logic
-
-### Before Completing Phase
-1. Run all tests
-2. Verify quality gates
-3. Manual testing on devices
-
 ---
 
 ## Important Principles
@@ -315,20 +165,6 @@ try {
 **Accessibility:** Screen reader compatible, WCAG AA compliance, keyboard navigable
 **Progressive Enhancement:** Core features work without AI, graceful degradation
 **Iteration Over Perfection:** Ship MVP features first, gather feedback, iterate
-
----
-
-## Git Workflow
-
-**Branches:** `main`, `develop`, `feature/phase-X-name`, `bugfix/fix-name`
-
-**Commit Messages:**
-```
-feat(auth): add password reset flow
-fix(entries): resolve duplicate key error
-docs(api): update authentication endpoints
-test(insights): add sentiment analysis tests
-```
 
 ---
 
@@ -347,8 +183,6 @@ test(insights): add sentiment analysis tests
 
 **Need Help?**
 - Troubleshooting: See `docs/troubleshooting.md`
-- AI Integration: See `.claude/future/ai-integration.md` (Phase 6+)
-- Backend Setup: See `.claude/future/backend-guide.md` (Phase 7+)
 
 ---
 
