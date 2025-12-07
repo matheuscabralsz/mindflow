@@ -26,7 +26,7 @@ import {
   IonRefresher,
   IonRefresherContent,
 } from '@ionic/react';
-import { add, personCircle, search } from 'ionicons/icons';
+import { add, personCircle, search, sparklesOutline } from 'ionicons/icons';
 import { format } from 'date-fns';
 import { useEntriesStore } from '../../store/entriesStore';
 import { getMoodEmoji } from '../../utils/moods';
@@ -60,12 +60,19 @@ export const EntryListPage: React.FC = () => {
     history.push('/search');
   };
 
+  const handleSummariesClick = () => {
+    history.push('/summaries');
+  };
+
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar color="primary">
           <IonTitle>My Journal</IonTitle>
           <IonButtons slot="end">
+            <IonButton onClick={handleSummariesClick} aria-label="AI summaries">
+              <IonIcon slot="icon-only" icon={sparklesOutline} />
+            </IonButton>
             <IonButton onClick={handleSearchClick} aria-label="search">
               <IonIcon slot="icon-only" icon={search} />
             </IonButton>

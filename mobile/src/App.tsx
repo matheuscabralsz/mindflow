@@ -11,6 +11,7 @@ import { EntryListPage } from './pages/entries/EntryListPage';
 import { EntryEditorPage } from './pages/entries/EntryEditorPage';
 import { EntryDetailPage } from './pages/entries/EntryDetailPage';
 import SearchPage from './pages/search/SearchPage';
+import SummariesPage from './pages/ai/SummariesPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuthStore } from './store/authStore';
 
@@ -105,6 +106,11 @@ const App: React.FC = () => {
           <Route exact path="/search">
             <ProtectedRoute>
               <SearchPage />
+            </ProtectedRoute>
+          </Route>
+          <Route exact path="/summaries">
+            <ProtectedRoute>
+              <SummariesPage />
             </ProtectedRoute>
           </Route>
 

@@ -24,3 +24,13 @@ DROP POLICY IF EXISTS "Users can view their own insights" ON ai_insights;
 CREATE POLICY "Users can view their own insights"
     ON ai_insights FOR SELECT
     USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own insights" ON ai_insights;
+CREATE POLICY "Users can insert their own insights"
+    ON ai_insights FOR INSERT
+    WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own insights" ON ai_insights;
+CREATE POLICY "Users can delete their own insights"
+    ON ai_insights FOR DELETE
+    USING (auth.uid() = user_id);

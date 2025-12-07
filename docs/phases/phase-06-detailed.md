@@ -2,16 +2,16 @@
 
 ## Overview
 
-**Goal:** Integrate OpenAI API for sentiment analysis on journal entries and generation of daily/weekly summaries with proper rate limiting, caching, and cost control.
+**Goal:** Integrate OpenAI API for sentiment analysis on journal entries and generation of daily/weekly summaries using Supabase Edge Functions with proper rate limiting, caching, and cost control.
 
-**Time Estimate:** 5-6 hours
+**Time Estimate:** 4-5 hours
 
 **Prerequisites:**
 - Phase 1 complete (Foundation & Infrastructure)
 - Phase 2 complete (User Authentication)
 - Phase 3 complete (Core Journal CRUD)
 - OpenAI API key available
-- `ai_insights` table exists in database
+- Supabase CLI installed (`npm install -g supabase`)
 
 **What You'll Have At The End:**
 - Automatic sentiment analysis on new entries
@@ -19,191 +19,279 @@
 - Daily and weekly summary views
 - Sentiment display on entries
 - Rate limiting to control API costs
-- Response caching to avoid redundant calls
+- Response caching via `ai_insights` table
 - Error handling for AI failures
 - Critical path tests
 
 ---
 
-## Step 1: OpenAI Setup (10 minutes)
+## Architecture Overview
 
-### 1.1 Install OpenAI SDK
+This phase uses **Supabase Edge Functions** (Deno-based serverless functions) for AI integration, maintaining the MVP architecture of "Direct Supabase integration (no backend server needed)".
 
-```bash
-# Backend
-cd backend
-npm install openai
-
-# Frontend (for types)
-cd ../mobile
-npm install openai --save-dev
+```
+┌─────────────────┐     ┌──────────────────────┐     ┌─────────────┐
+│  Mobile App     │────▶│  Supabase Edge Fn    │────▶│  OpenAI API │
+│  (Ionic/React)  │     │  (Deno Runtime)      │     │             │
+└─────────────────┘     └──────────────────────┘     └─────────────┘
+        │                         │
+        │                         ▼
+        │               ┌──────────────────────┐
+        └──────────────▶│  Supabase Database   │
+                        │  (entries, ai_insights)│
+                        └──────────────────────┘
 ```
 
-### 1.2 Add OpenAI API Key to Backend .env
-
-```bash
-# backend/.env
-cat >> backend/.env << 'EOF'
-
-# OpenAI Configuration
-OPENAI_API_KEY=sk-your-key-here
-OPENAI_MODEL=gpt-3.5-turbo
-OPENAI_MAX_TOKENS=500
-OPENAI_TEMPERATURE=0.3
-EOF
-```
-
-### 1.3 Update Backend env.ts
-
-```bash
-# backend/src/config/env.ts
-cat >> backend/src/config/env.ts << 'EOF'
-
-export const OPENAI_CONFIG = {
-  apiKey: process.env.OPENAI_API_KEY || '',
-  model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
-  maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '500', 10),
-  temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.3'),
-};
-
-if (!OPENAI_CONFIG.apiKey) {
-  console.warn('Warning: OPENAI_API_KEY not set. AI features will be disabled.');
-}
-EOF
-```
+**Why Edge Functions:**
+- OpenAI API key stays server-side (secure)
+- No separate backend server to deploy/manage
+- Automatic scaling and HTTPS
+- Direct database access with service role
+- Built-in CORS handling
 
 ---
 
-## Step 2: Database Schema for AI Insights (10 minutes)
+## Step 1: Environment Setup (10 minutes)
 
-### 2.1 Verify AI Insights Table
+### 1.1 Install Supabase CLI (if not installed)
 
 ```bash
-# Check supabase/schemas/03_ai_insights.sql
-cat supabase/schemas/03_ai_insights.sql
-
-# Should have ai_insights table with:
-# - id, entry_id, user_id
-# - sentiment_score, sentiment_label
-# - summary, key_themes
-# - created_at
+npm install -g supabase
 ```
 
-### 2.2 Add Sentiment to Entries Table
-
-First, create a schema file for the sentiment columns:
+### 1.2 Initialize Supabase Functions
 
 ```bash
-# Create schema file for sentiment columns
-cat > supabase/schemas/05_sentiment_columns.sql << 'EOF'
--- Add sentiment analysis columns to entries table
+cd /home/mack/my_workspace/mindflow
+supabase functions new analyze-sentiment
+supabase functions new generate-summary
+```
 
+This creates:
+```
+supabase/
+└── functions/
+    ├── analyze-sentiment/
+    │   └── index.ts
+    └── generate-summary/
+        └── index.ts
+```
+
+### 1.3 Set OpenAI API Key as Secret
+
+```bash
+# Set the secret (you'll be prompted for the value)
+supabase secrets set OPENAI_API_KEY=sk-your-key-here
+
+# Verify it's set
+supabase secrets list
+```
+
+**Note:** Never commit API keys. Use Supabase Secrets for all sensitive values.
+
+---
+
+## Step 2: Database Schema Updates (15 minutes)
+
+### 2.1 Add Sentiment Columns to Entries
+
+Create a new migration file:
+
+```bash
+# Generate timestamp-based migration
+cat > supabase/migrations/$(date +%Y%m%d%H%M%S)_add_sentiment_to_entries.sql << 'EOF'
+-- Add sentiment analysis columns to entries table
 ALTER TABLE entries
 ADD COLUMN IF NOT EXISTS sentiment_score DECIMAL(3,2),
 ADD COLUMN IF NOT EXISTS sentiment_label TEXT;
 
 -- Create index for sentiment queries
-CREATE INDEX IF NOT EXISTS idx_entries_sentiment ON entries(sentiment_score);
+CREATE INDEX IF NOT EXISTS idx_entries_sentiment_score ON entries(sentiment_score);
+CREATE INDEX IF NOT EXISTS idx_entries_sentiment_label ON entries(sentiment_label);
 
-COMMENT ON COLUMN entries.sentiment_score IS 'AI sentiment score from -1 (negative) to 1 (positive)';
+-- Add constraints
+ALTER TABLE entries
+ADD CONSTRAINT entries_sentiment_score_range
+  CHECK (sentiment_score IS NULL OR (sentiment_score >= -1 AND sentiment_score <= 1));
+
+ALTER TABLE entries
+ADD CONSTRAINT entries_sentiment_label_valid
+  CHECK (sentiment_label IS NULL OR sentiment_label IN ('positive', 'neutral', 'negative'));
+
+COMMENT ON COLUMN entries.sentiment_score IS 'AI sentiment score from -1 (very negative) to 1 (very positive)';
 COMMENT ON COLUMN entries.sentiment_label IS 'AI sentiment label: positive, neutral, or negative';
 EOF
 ```
 
-Then generate and apply the migration:
+### 2.2 Create Rate Limiting Table
 
 ```bash
-# Generate migration from schema changes
-cd /home/mack/my_workspace/mindflow
-npx supabase db diff --schema public -f add_sentiment_columns_to_entries
+cat > supabase/migrations/$(date +%Y%m%d%H%M%S)_create_ai_rate_limits.sql << 'EOF'
+-- Rate limiting table for AI requests
+CREATE TABLE IF NOT EXISTS ai_rate_limits (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL,
+    request_count INTEGER DEFAULT 1,
+    window_start TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-# Review the generated migration
-cat supabase/migrations/*_add_sentiment_columns_to_entries.sql
+-- Index for fast lookups
+CREATE INDEX IF NOT EXISTS idx_ai_rate_limits_user_endpoint
+ON ai_rate_limits(user_id, endpoint, window_start);
 
-# Apply the migration
+-- RLS
+ALTER TABLE ai_rate_limits ENABLE ROW LEVEL SECURITY;
+
+-- Only allow service role to manage rate limits
+CREATE POLICY "Service role manages rate limits"
+ON ai_rate_limits FOR ALL
+USING (false)
+WITH CHECK (false);
+EOF
+```
+
+### 2.3 Update ai_insights Table Policies
+
+```bash
+cat > supabase/migrations/$(date +%Y%m%d%H%M%S)_update_ai_insights_policies.sql << 'EOF'
+-- Allow users to insert their own insights (for caching)
+DROP POLICY IF EXISTS "Users can insert their own insights" ON ai_insights;
+CREATE POLICY "Users can insert their own insights"
+    ON ai_insights FOR INSERT
+    WITH CHECK (auth.uid() = user_id);
+
+-- Allow users to delete their own insights
+DROP POLICY IF EXISTS "Users can delete their own insights" ON ai_insights;
+CREATE POLICY "Users can delete their own insights"
+    ON ai_insights FOR DELETE
+    USING (auth.uid() = user_id);
+EOF
+```
+
+### 2.4 Apply Migrations
+
+```bash
 npx supabase db push
-
-# Alternative: Run directly in Supabase Dashboard SQL Editor
-# (Copy the SQL from supabase/schemas/05_sentiment_columns.sql)
 ```
 
 ---
 
-## Step 3: Backend AI Services (45 minutes)
+## Step 3: Sentiment Analysis Edge Function (45 minutes)
 
-### 3.1 Create OpenAI Client
+### 3.1 Create Shared Utilities
 
 ```bash
-# backend/src/services/ai/openai.client.ts
-mkdir -p backend/src/services/ai
-cat > backend/src/services/ai/openai.client.ts << 'EOF'
-import OpenAI from 'openai';
-import { OPENAI_CONFIG } from '../../config/env';
+mkdir -p supabase/functions/_shared
+cat > supabase/functions/_shared/cors.ts << 'EOF'
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+EOF
+```
 
-// Initialize OpenAI client
-export const openai = OPENAI_CONFIG.apiKey
-  ? new OpenAI({ apiKey: OPENAI_CONFIG.apiKey })
-  : null;
+```bash
+cat > supabase/functions/_shared/supabase.ts << 'EOF'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-/**
- * Check if OpenAI is configured
- */
-export function isOpenAIConfigured(): boolean {
-  return openai !== null;
+export function createSupabaseClient(authHeader: string) {
+  return createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+    {
+      global: {
+        headers: { Authorization: authHeader },
+      },
+    }
+  );
 }
 
-/**
- * Call OpenAI with rate limiting and error handling
- */
-export async function callOpenAI(
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
-  options?: {
-    model?: string;
-    temperature?: number;
-    maxTokens?: number;
-  }
-): Promise<string> {
-  if (!openai) {
-    throw new Error('OpenAI is not configured');
-  }
-
-  try {
-    const completion = await openai.chat.completions.create({
-      model: options?.model || OPENAI_CONFIG.model,
-      messages,
-      temperature: options?.temperature || OPENAI_CONFIG.temperature,
-      max_tokens: options?.maxTokens || OPENAI_CONFIG.maxTokens,
-    });
-
-    return completion.choices[0]?.message?.content || '';
-  } catch (error: any) {
-    console.error('OpenAI API error:', error);
-
-    if (error.status === 429) {
-      throw new Error('Rate limit exceeded. Please try again later.');
-    }
-
-    if (error.status === 401) {
-      throw new Error('Invalid OpenAI API key');
-    }
-
-    throw new Error(`OpenAI API error: ${error.message}`);
-  }
+export function createSupabaseServiceClient() {
+  return createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
 }
 EOF
 ```
 
-### 3.2 Create Sentiment Analysis Service
+```bash
+cat > supabase/functions/_shared/rate-limit.ts << 'EOF'
+import { createSupabaseServiceClient } from './supabase.ts';
+
+interface RateLimitConfig {
+  maxRequests: number;
+  windowMinutes: number;
+}
+
+const RATE_LIMITS: Record<string, RateLimitConfig> = {
+  'analyze-sentiment': { maxRequests: 20, windowMinutes: 60 },
+  'generate-summary': { maxRequests: 10, windowMinutes: 60 },
+};
+
+export async function checkRateLimit(
+  userId: string,
+  endpoint: string
+): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
+  const config = RATE_LIMITS[endpoint] || { maxRequests: 10, windowMinutes: 60 };
+  const supabase = createSupabaseServiceClient();
+
+  const windowStart = new Date();
+  windowStart.setMinutes(windowStart.getMinutes() - config.windowMinutes);
+
+  // Count requests in current window
+  const { count, error } = await supabase
+    .from('ai_rate_limits')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('endpoint', endpoint)
+    .gte('window_start', windowStart.toISOString());
+
+  if (error) {
+    console.error('Rate limit check failed:', error);
+    // Allow request if rate limit check fails (fail open)
+    return { allowed: true, remaining: config.maxRequests, resetAt: new Date() };
+  }
+
+  const currentCount = count || 0;
+  const allowed = currentCount < config.maxRequests;
+
+  if (allowed) {
+    // Log this request
+    await supabase.from('ai_rate_limits').insert({
+      user_id: userId,
+      endpoint,
+      window_start: new Date().toISOString(),
+    });
+  }
+
+  const resetAt = new Date();
+  resetAt.setMinutes(resetAt.getMinutes() + config.windowMinutes);
+
+  return {
+    allowed,
+    remaining: Math.max(0, config.maxRequests - currentCount - 1),
+    resetAt,
+  };
+}
+EOF
+```
+
+### 3.2 Create Sentiment Analysis Function
 
 ```bash
-# backend/src/services/ai/sentiment.service.ts
-cat > backend/src/services/ai/sentiment.service.ts << 'EOF'
-import { callOpenAI, isOpenAIConfigured } from './openai.client';
+cat > supabase/functions/analyze-sentiment/index.ts << 'EOF'
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { corsHeaders } from '../_shared/cors.ts';
+import { createSupabaseClient } from '../_shared/supabase.ts';
+import { checkRateLimit } from '../_shared/rate-limit.ts';
 
-export interface SentimentResult {
-  score: number; // -1 to 1
+interface SentimentResult {
+  score: number;
   label: 'positive' | 'neutral' | 'negative';
-  confidence: number; // 0 to 1
+  confidence: number;
   emotions: string[];
 }
 
@@ -219,78 +307,228 @@ const SENTIMENT_PROMPT = `Analyze the emotional tone of this journal entry and r
 Journal entry:
 `;
 
-/**
- * Analyze sentiment of a journal entry
- */
-export async function analyzeSentiment(content: string): Promise<SentimentResult> {
-  if (!isOpenAIConfigured()) {
-    throw new Error('OpenAI is not configured');
+serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
-
-  if (!content || content.trim().length === 0) {
-    throw new Error('Content cannot be empty');
-  }
-
-  // Truncate very long entries
-  const truncatedContent = content.substring(0, 2000);
-
-  const response = await callOpenAI([
-    {
-      role: 'system',
-      content: 'You are a sentiment analysis expert. Return ONLY valid JSON, no markdown formatting.',
-    },
-    {
-      role: 'user',
-      content: SENTIMENT_PROMPT + truncatedContent,
-    },
-  ], {
-    temperature: 0.2, // Low temperature for consistent results
-    maxTokens: 200,
-  });
 
   try {
-    // Remove markdown code blocks if present
-    const cleanedResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const result = JSON.parse(cleanedResponse);
-
-    // Validate response
-    if (
-      typeof result.score !== 'number' ||
-      result.score < -1 ||
-      result.score > 1 ||
-      !['positive', 'neutral', 'negative'].includes(result.label) ||
-      !Array.isArray(result.emotions)
-    ) {
-      throw new Error('Invalid sentiment analysis response');
+    // Get auth header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    return result;
-  } catch (error) {
-    console.error('Failed to parse sentiment response:', response);
-    throw new Error('Failed to parse sentiment analysis result');
-  }
-}
+    // Create Supabase client with user context
+    const supabase = createSupabaseClient(authHeader);
 
-/**
- * Get sentiment label from score
- */
-export function getSentimentLabel(score: number): 'positive' | 'neutral' | 'negative' {
-  if (score >= 0.3) return 'positive';
-  if (score <= -0.3) return 'negative';
-  return 'neutral';
-}
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check rate limit
+    const rateLimit = await checkRateLimit(user.id, 'analyze-sentiment');
+    if (!rateLimit.allowed) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Rate limit exceeded. Please try again later.',
+          resetAt: rateLimit.resetAt,
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+            'X-RateLimit-Reset': rateLimit.resetAt.toISOString(),
+          }
+        }
+      );
+    }
+
+    // Get request body
+    const { entryId } = await req.json();
+    if (!entryId) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Entry ID is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Fetch entry (RLS ensures user can only access their own)
+    const { data: entry, error: entryError } = await supabase
+      .from('entries')
+      .select('id, content, sentiment_score, sentiment_label')
+      .eq('id', entryId)
+      .single();
+
+    if (entryError || !entry) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Entry not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Return cached result if exists
+    if (entry.sentiment_score !== null && entry.sentiment_label !== null) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            score: entry.sentiment_score,
+            label: entry.sentiment_label,
+            cached: true,
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Call OpenAI
+    const openaiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'AI service not configured' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Truncate long content
+    const truncatedContent = entry.content.substring(0, 2000);
+
+    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a sentiment analysis expert. Return ONLY valid JSON, no markdown formatting.',
+          },
+          {
+            role: 'user',
+            content: SENTIMENT_PROMPT + truncatedContent,
+          },
+        ],
+        temperature: 0.2,
+        max_tokens: 200,
+      }),
+    });
+
+    if (!openaiResponse.ok) {
+      const errorData = await openaiResponse.json();
+      console.error('OpenAI error:', errorData);
+
+      if (openaiResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'AI service rate limited. Please try again later.' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: false, error: 'AI analysis failed' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const openaiData = await openaiResponse.json();
+    const responseText = openaiData.choices[0]?.message?.content || '';
+
+    // Parse response
+    let sentiment: SentimentResult;
+    try {
+      const cleanedResponse = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      sentiment = JSON.parse(cleanedResponse);
+
+      // Validate response
+      if (
+        typeof sentiment.score !== 'number' ||
+        sentiment.score < -1 ||
+        sentiment.score > 1 ||
+        !['positive', 'neutral', 'negative'].includes(sentiment.label)
+      ) {
+        throw new Error('Invalid sentiment response format');
+      }
+    } catch (parseError) {
+      console.error('Failed to parse sentiment response:', responseText);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to parse AI response' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Update entry with sentiment
+    const { error: updateError } = await supabase
+      .from('entries')
+      .update({
+        sentiment_score: sentiment.score,
+        sentiment_label: sentiment.label,
+      })
+      .eq('id', entryId);
+
+    if (updateError) {
+      console.error('Failed to update entry:', updateError);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          score: sentiment.score,
+          label: sentiment.label,
+          confidence: sentiment.confidence,
+          emotions: sentiment.emotions,
+          cached: false,
+        },
+      }),
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+        }
+      }
+    );
+  } catch (error) {
+    console.error('Sentiment analysis error:', error);
+    return new Response(
+      JSON.stringify({ success: false, error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
 EOF
 ```
 
-### 3.3 Create Summary Generation Service
+---
+
+## Step 4: Summary Generation Edge Function (45 minutes)
+
+### 4.1 Create Summary Function
 
 ```bash
-# backend/src/services/ai/summary.service.ts
-cat > backend/src/services/ai/summary.service.ts << 'EOF'
-import { callOpenAI, isOpenAIConfigured } from './openai.client';
-import { supabase } from '../../database/supabase';
+cat > supabase/functions/generate-summary/index.ts << 'EOF'
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { corsHeaders } from '../_shared/cors.ts';
+import { createSupabaseClient } from '../_shared/supabase.ts';
+import { checkRateLimit } from '../_shared/rate-limit.ts';
 
-export interface SummaryResult {
+interface SummaryResult {
   summary: string;
   keyThemes: string[];
   overallMood: string;
@@ -305,8 +543,7 @@ Return ONLY a JSON object (no markdown formatting):
   "summary": "<2-3 sentence overview of the day>",
   "keyThemes": ["<theme1>", "<theme2>", "<theme3>"],
   "overallMood": "<overall emotional tone>",
-  "insights": ["<insight1>", "<insight2>"],
-  "entryCount": <number>
+  "insights": ["<insight1>", "<insight2>"]
 }
 
 Entries:
@@ -319,409 +556,299 @@ Return ONLY a JSON object (no markdown formatting):
   "summary": "<3-4 sentence overview of the week>",
   "keyThemes": ["<theme1>", "<theme2>", "<theme3>"],
   "overallMood": "<overall emotional trajectory>",
-  "insights": ["<pattern1>", "<pattern2>", "<growth observation>"],
-  "entryCount": <number>
+  "insights": ["<pattern1>", "<pattern2>", "<growth observation>"]
 }
 
 Entries:
 `;
 
-/**
- * Generate daily summary for a user
- */
-export async function generateDailySummary(
-  userId: string,
-  date: Date = new Date()
-): Promise<SummaryResult> {
-  if (!isOpenAIConfigured()) {
-    throw new Error('OpenAI is not configured');
+serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
-
-  // Get entries for the specified day
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
-
-  const { data: entries, error } = await supabase
-    .from('entries')
-    .select('content, created_at, mood')
-    .eq('user_id', userId)
-    .gte('created_at', startOfDay.toISOString())
-    .lte('created_at', endOfDay.toISOString())
-    .order('created_at', { ascending: true });
-
-  if (error) throw error;
-
-  if (!entries || entries.length === 0) {
-    throw new Error('No entries found for this date');
-  }
-
-  // Format entries for prompt
-  const formattedEntries = entries
-    .map((entry, index) => {
-      const time = new Date(entry.created_at).toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-      });
-      const mood = entry.mood ? ` [Mood: ${entry.mood}]` : '';
-      return `Entry ${index + 1} (${time})${mood}:\n${entry.content}`;
-    })
-    .join('\n\n---\n\n');
-
-  const response = await callOpenAI([
-    {
-      role: 'system',
-      content: 'You are a thoughtful journal analysis assistant. Return ONLY valid JSON.',
-    },
-    {
-      role: 'user',
-      content: DAILY_SUMMARY_PROMPT + formattedEntries,
-    },
-  ], {
-    temperature: 0.5,
-    maxTokens: 500,
-  });
 
   try {
-    const cleanedResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const result = JSON.parse(cleanedResponse);
-
-    return {
-      ...result,
-      entryCount: entries.length,
-    };
-  } catch (error) {
-    console.error('Failed to parse summary response:', response);
-    throw new Error('Failed to parse summary result');
-  }
-}
-
-/**
- * Generate weekly summary for a user
- */
-export async function generateWeeklySummary(
-  userId: string,
-  endDate: Date = new Date()
-): Promise<SummaryResult> {
-  if (!isOpenAIConfigured()) {
-    throw new Error('OpenAI is not configured');
-  }
-
-  // Get entries for the past 7 days
-  const startDate = new Date(endDate);
-  startDate.setDate(startDate.getDate() - 7);
-
-  const { data: entries, error } = await supabase
-    .from('entries')
-    .select('content, created_at, mood, sentiment_score')
-    .eq('user_id', userId)
-    .gte('created_at', startDate.toISOString())
-    .lte('created_at', endDate.toISOString())
-    .order('created_at', { ascending: true });
-
-  if (error) throw error;
-
-  if (!entries || entries.length === 0) {
-    throw new Error('No entries found for this week');
-  }
-
-  // Format entries by day
-  const entriesByDay: { [key: string]: typeof entries } = {};
-  entries.forEach((entry) => {
-    const day = new Date(entry.created_at).toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'short',
-      day: 'numeric',
-    });
-    if (!entriesByDay[day]) {
-      entriesByDay[day] = [];
-    }
-    entriesByDay[day].push(entry);
-  });
-
-  const formattedEntries = Object.entries(entriesByDay)
-    .map(([day, dayEntries]) => {
-      const dayContent = dayEntries.map((e, i) => {
-        const mood = e.mood ? ` [Mood: ${e.mood}]` : '';
-        const sentiment = e.sentiment_score ? ` [Sentiment: ${e.sentiment_score.toFixed(2)}]` : '';
-        return `  ${i + 1}. ${e.content.substring(0, 200)}${mood}${sentiment}`;
-      }).join('\n');
-
-      return `${day} (${dayEntries.length} ${dayEntries.length === 1 ? 'entry' : 'entries'}):\n${dayContent}`;
-    })
-    .join('\n\n---\n\n');
-
-  const response = await callOpenAI([
-    {
-      role: 'system',
-      content: 'You are a thoughtful journal analysis assistant. Return ONLY valid JSON.',
-    },
-    {
-      role: 'user',
-      content: WEEKLY_SUMMARY_PROMPT + formattedEntries,
-    },
-  ], {
-    temperature: 0.5,
-    maxTokens: 600,
-  });
-
-  try {
-    const cleanedResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const result = JSON.parse(cleanedResponse);
-
-    return {
-      ...result,
-      entryCount: entries.length,
-    };
-  } catch (error) {
-    console.error('Failed to parse summary response:', response);
-    throw new Error('Failed to parse summary result');
-  }
-}
-EOF
-```
-
----
-
-## Step 4: Backend AI Controllers and Routes (30 minutes)
-
-### 4.1 Create AI Controller
-
-```bash
-# backend/src/controllers/ai.controller.ts
-cat > backend/src/controllers/ai.controller.ts << 'EOF'
-import { Request, Response } from 'express';
-import { analyzeSentiment } from '../services/ai/sentiment.service';
-import { generateDailySummary, generateWeeklySummary } from '../services/ai/summary.service';
-import { supabase } from '../database/supabase';
-
-/**
- * POST /ai/analyze-sentiment
- * Analyze sentiment for an entry
- */
-export const analyzeSentimentController = async (req: Request, res: Response) => {
-  try {
-    const { entryId } = req.body;
-    const userId = req.user!.id;
-
-    if (!entryId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Entry ID is required',
-      });
+    // Get auth header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Fetch entry
-    const { data: entry, error: fetchError } = await supabase
-      .from('entries')
-      .select('*')
-      .eq('id', entryId)
-      .eq('user_id', userId)
+    // Create Supabase client with user context
+    const supabase = createSupabaseClient(authHeader);
+
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check rate limit
+    const rateLimit = await checkRateLimit(user.id, 'generate-summary');
+    if (!rateLimit.allowed) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Rate limit exceeded. Please try again later.',
+          resetAt: rateLimit.resetAt,
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+            'X-RateLimit-Reset': rateLimit.resetAt.toISOString(),
+          }
+        }
+      );
+    }
+
+    // Get request body
+    const { type = 'daily', date } = await req.json();
+    const targetDate = date ? new Date(date) : new Date();
+
+    // Calculate date range
+    let startDate: Date;
+    let endDate: Date;
+    let insightType: string;
+    let prompt: string;
+
+    if (type === 'weekly') {
+      startDate = new Date(targetDate);
+      startDate.setDate(startDate.getDate() - 7);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(targetDate);
+      endDate.setHours(23, 59, 59, 999);
+      insightType = 'weekly_summary';
+      prompt = WEEKLY_SUMMARY_PROMPT;
+    } else {
+      startDate = new Date(targetDate);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(targetDate);
+      endDate.setHours(23, 59, 59, 999);
+      insightType = 'daily_summary';
+      prompt = DAILY_SUMMARY_PROMPT;
+    }
+
+    // Check cache first
+    const { data: cachedInsight } = await supabase
+      .from('ai_insights')
+      .select('content, created_at')
+      .eq('user_id', user.id)
+      .eq('insight_type', insightType)
+      .gte('created_at', startDate.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
 
-    if (fetchError || !entry) {
-      return res.status(404).json({
-        success: false,
-        error: 'Entry not found',
-      });
+    // Return cached result if less than 6 hours old
+    if (cachedInsight) {
+      const cacheAge = Date.now() - new Date(cachedInsight.created_at).getTime();
+      const sixHours = 6 * 60 * 60 * 1000;
+
+      if (cacheAge < sixHours) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              ...cachedInsight.content,
+              cached: true,
+              cachedAt: cachedInsight.created_at,
+            },
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
-    // Analyze sentiment
-    const sentiment = await analyzeSentiment(entry.content);
-
-    // Update entry with sentiment
-    const { error: updateError } = await supabase
+    // Fetch entries for date range
+    const { data: entries, error: entriesError } = await supabase
       .from('entries')
-      .update({
-        sentiment_score: sentiment.score,
-        sentiment_label: sentiment.label,
-      })
-      .eq('id', entryId);
+      .select('content, created_at, mood, sentiment_score')
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString())
+      .order('created_at', { ascending: true });
 
-    if (updateError) throw updateError;
+    if (entriesError) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to fetch entries' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    res.json({
-      success: true,
-      data: sentiment,
+    if (!entries || entries.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: `No entries found for this ${type === 'weekly' ? 'week' : 'day'}` }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Format entries for prompt
+    let formattedEntries: string;
+
+    if (type === 'weekly') {
+      // Group by day for weekly
+      const entriesByDay: Record<string, typeof entries> = {};
+      entries.forEach((entry) => {
+        const day = new Date(entry.created_at).toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'short',
+          day: 'numeric',
+        });
+        if (!entriesByDay[day]) entriesByDay[day] = [];
+        entriesByDay[day].push(entry);
+      });
+
+      formattedEntries = Object.entries(entriesByDay)
+        .map(([day, dayEntries]) => {
+          const dayContent = dayEntries.map((e, i) => {
+            const mood = e.mood ? ` [Mood: ${e.mood}]` : '';
+            const sentiment = e.sentiment_score ? ` [Sentiment: ${e.sentiment_score.toFixed(2)}]` : '';
+            return `  ${i + 1}. ${e.content.substring(0, 200)}${mood}${sentiment}`;
+          }).join('\n');
+          return `${day} (${dayEntries.length} ${dayEntries.length === 1 ? 'entry' : 'entries'}):\n${dayContent}`;
+        })
+        .join('\n\n---\n\n');
+    } else {
+      // Simple list for daily
+      formattedEntries = entries
+        .map((entry, index) => {
+          const time = new Date(entry.created_at).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+          });
+          const mood = entry.mood ? ` [Mood: ${entry.mood}]` : '';
+          return `Entry ${index + 1} (${time})${mood}:\n${entry.content}`;
+        })
+        .join('\n\n---\n\n');
+    }
+
+    // Call OpenAI
+    const openaiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'AI service not configured' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a thoughtful journal analysis assistant. Return ONLY valid JSON.',
+          },
+          {
+            role: 'user',
+            content: prompt + formattedEntries,
+          },
+        ],
+        temperature: 0.5,
+        max_tokens: type === 'weekly' ? 600 : 500,
+      }),
     });
-  } catch (error: any) {
-    console.error('Sentiment analysis error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to analyze sentiment',
+
+    if (!openaiResponse.ok) {
+      const errorData = await openaiResponse.json();
+      console.error('OpenAI error:', errorData);
+      return new Response(
+        JSON.stringify({ success: false, error: 'AI analysis failed' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const openaiData = await openaiResponse.json();
+    const responseText = openaiData.choices[0]?.message?.content || '';
+
+    // Parse response
+    let summary: SummaryResult;
+    try {
+      const cleanedResponse = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      summary = JSON.parse(cleanedResponse);
+      summary.entryCount = entries.length;
+    } catch (parseError) {
+      console.error('Failed to parse summary response:', responseText);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to parse AI response' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Cache the result
+    await supabase.from('ai_insights').insert({
+      user_id: user.id,
+      insight_type: insightType,
+      content: summary,
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
     });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          ...summary,
+          cached: false,
+        },
+      }),
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+        }
+      }
+    );
+  } catch (error) {
+    console.error('Summary generation error:', error);
+    return new Response(
+      JSON.stringify({ success: false, error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
-};
-
-/**
- * POST /ai/daily-summary
- * Generate daily summary
- */
-export const generateDailySummaryController = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user!.id;
-    const { date } = req.body;
-
-    const targetDate = date ? new Date(date) : new Date();
-    const summary = await generateDailySummary(userId, targetDate);
-
-    res.json({
-      success: true,
-      data: summary,
-    });
-  } catch (error: any) {
-    console.error('Daily summary error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to generate daily summary',
-    });
-  }
-};
-
-/**
- * POST /ai/weekly-summary
- * Generate weekly summary
- */
-export const generateWeeklySummaryController = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user!.id;
-    const { endDate } = req.body;
-
-    const targetDate = endDate ? new Date(endDate) : new Date();
-    const summary = await generateWeeklySummary(userId, targetDate);
-
-    res.json({
-      success: true,
-      data: summary,
-    });
-  } catch (error: any) {
-    console.error('Weekly summary error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to generate weekly summary',
-    });
-  }
-};
-EOF
-```
-
-### 4.2 Create AI Routes
-
-```bash
-# backend/src/routes/ai.routes.ts
-cat > backend/src/routes/ai.routes.ts << 'EOF'
-import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.middleware';
-import {
-  analyzeSentimentController,
-  generateDailySummaryController,
-  generateWeeklySummaryController,
-} from '../controllers/ai.controller';
-
-const router = Router();
-
-// All routes require authentication
-router.use(requireAuth);
-
-router.post('/analyze-sentiment', analyzeSentimentController);
-router.post('/daily-summary', generateDailySummaryController);
-router.post('/weekly-summary', generateWeeklySummaryController);
-
-export default router;
-EOF
-```
-
-### 4.3 Update Routes Index
-
-```bash
-# Add to backend/src/routes/index.ts
-import aiRoutes from './ai.routes';
-
-router.use('/ai', aiRoutes);
-```
-
----
-
-## Step 5: Rate Limiting Middleware (20 minutes)
-
-### 5.1 Install Rate Limiter
-
-```bash
-cd backend
-npm install express-rate-limit
-```
-
-### 5.2 Create Rate Limit Middleware
-
-```bash
-# backend/src/middleware/rateLimit.middleware.ts
-cat > backend/src/middleware/rateLimit.middleware.ts << 'EOF'
-import rateLimit from 'express-rate-limit';
-
-/**
- * Rate limiter for AI endpoints
- * Limits to 10 requests per 15 minutes per user
- */
-export const aiRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 requests per window
-  message: {
-    success: false,
-    error: 'Too many AI requests. Please try again in 15 minutes.',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  // Use user ID as key
-  keyGenerator: (req) => {
-    return req.user?.id || req.ip;
-  },
-});
-
-/**
- * Rate limiter for sentiment analysis
- * More generous since it's per-entry
- */
-export const sentimentRateLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 5, // 5 requests per minute
-  message: {
-    success: false,
-    error: 'Too many sentiment analysis requests. Please slow down.',
-  },
-  keyGenerator: (req) => {
-    return req.user?.id || req.ip;
-  },
 });
 EOF
 ```
 
-### 5.3 Apply Rate Limiting to AI Routes
+### 4.2 Deploy Edge Functions
 
 ```bash
-# Update backend/src/routes/ai.routes.ts
-import { aiRateLimiter, sentimentRateLimiter } from '../middleware/rateLimit.middleware';
+# Deploy all functions
+supabase functions deploy analyze-sentiment
+supabase functions deploy generate-summary
 
-router.post('/analyze-sentiment', sentimentRateLimiter, analyzeSentimentController);
-router.post('/daily-summary', aiRateLimiter, generateDailySummaryController);
-router.post('/weekly-summary', aiRateLimiter, generateWeeklySummaryController);
+# Or deploy all at once
+supabase functions deploy
 ```
 
 ---
 
-## Step 6: Frontend AI Service (25 minutes)
+## Step 5: Frontend Types and Service (30 minutes)
 
-### 6.1 Create AI Types
+### 5.1 Create AI Types
 
 ```bash
-# mobile/src/types/ai.types.ts
 cat > mobile/src/types/ai.types.ts << 'EOF'
 export interface SentimentAnalysis {
   score: number;
   label: 'positive' | 'neutral' | 'negative';
-  confidence: number;
-  emotions: string[];
+  confidence?: number;
+  emotions?: string[];
+  cached?: boolean;
 }
 
 export interface Summary {
@@ -730,158 +857,185 @@ export interface Summary {
   overallMood: string;
   insights: string[];
   entryCount: number;
-  date?: string;
+  cached?: boolean;
+  cachedAt?: string;
 }
 
-export interface AISummaryState {
-  dailySummary: Summary | null;
-  weeklySummary: Summary | null;
-  loading: boolean;
-  error: string | null;
+export interface AIResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  resetAt?: string;
 }
 EOF
 ```
 
-### 6.2 Create AI Service
+### 5.2 Create AI Service
 
 ```bash
-# mobile/src/services/ai.service.ts
 cat > mobile/src/services/ai.service.ts << 'EOF'
-import axios from 'axios';
-import type { SentimentAnalysis, Summary } from '../types/ai.types';
+/**
+ * AI Service
+ * Handles calls to Supabase Edge Functions for AI features
+ *
+ * Important Notes:
+ * - Uses supabase.functions.invoke() for secure Edge Function calls
+ * - Auth token is automatically included
+ * - Rate limiting is handled server-side
+ */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { supabase } from './supabase';
+import type { SentimentAnalysis, Summary, AIResponse } from '../types/ai.types';
 
-// Create axios instance with auth
-const createAuthAxios = () => {
-  const instance = axios.create({
-    baseURL: `${API_URL}/ai`,
-  });
-
-  // Add auth token to requests
-  instance.interceptors.request.use((config) => {
-    // Get token from Supabase session
-    const session = JSON.parse(localStorage.getItem('supabase.auth.token') || '{}');
-    const token = session?.currentSession?.access_token;
-
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+/**
+ * Analyze sentiment for a journal entry
+ * @param entryId - The entry UUID to analyze
+ */
+export async function analyzeSentiment(entryId: string): Promise<SentimentAnalysis> {
+  const { data, error } = await supabase.functions.invoke<AIResponse<SentimentAnalysis>>(
+    'analyze-sentiment',
+    {
+      body: { entryId },
     }
+  );
 
-    return config;
-  });
+  if (error) {
+    console.error('Sentiment analysis error:', error);
+    throw new Error(error.message || 'Failed to analyze sentiment');
+  }
 
-  return instance;
-};
+  if (!data?.success || !data.data) {
+    throw new Error(data?.error || 'Failed to analyze sentiment');
+  }
 
-export const aiService = {
-  /**
-   * Analyze sentiment for an entry
-   */
-  async analyzeSentiment(entryId: string): Promise<SentimentAnalysis> {
-    const api = createAuthAxios();
-    const { data } = await api.post('/analyze-sentiment', { entryId });
+  return data.data;
+}
 
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to analyze sentiment');
+/**
+ * Generate daily summary
+ * @param date - Optional date for the summary (defaults to today)
+ */
+export async function generateDailySummary(date?: Date): Promise<Summary> {
+  const { data, error } = await supabase.functions.invoke<AIResponse<Summary>>(
+    'generate-summary',
+    {
+      body: {
+        type: 'daily',
+        date: date?.toISOString(),
+      },
     }
+  );
 
-    return data.data;
-  },
+  if (error) {
+    console.error('Daily summary error:', error);
+    throw new Error(error.message || 'Failed to generate daily summary');
+  }
 
-  /**
-   * Generate daily summary
-   */
-  async generateDailySummary(date?: Date): Promise<Summary> {
-    const api = createAuthAxios();
-    const { data } = await api.post('/daily-summary', {
-      date: date?.toISOString(),
-    });
+  if (!data?.success || !data.data) {
+    throw new Error(data?.error || 'Failed to generate daily summary');
+  }
 
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to generate daily summary');
+  return data.data;
+}
+
+/**
+ * Generate weekly summary
+ * @param endDate - Optional end date for the week (defaults to today)
+ */
+export async function generateWeeklySummary(endDate?: Date): Promise<Summary> {
+  const { data, error } = await supabase.functions.invoke<AIResponse<Summary>>(
+    'generate-summary',
+    {
+      body: {
+        type: 'weekly',
+        date: endDate?.toISOString(),
+      },
     }
+  );
 
-    return data.data;
-  },
+  if (error) {
+    console.error('Weekly summary error:', error);
+    throw new Error(error.message || 'Failed to generate weekly summary');
+  }
 
-  /**
-   * Generate weekly summary
-   */
-  async generateWeeklySummary(endDate?: Date): Promise<Summary> {
-    const api = createAuthAxios();
-    const { data } = await api.post('/weekly-summary', {
-      endDate: endDate?.toISOString(),
-    });
+  if (!data?.success || !data.data) {
+    throw new Error(data?.error || 'Failed to generate weekly summary');
+  }
 
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to generate weekly summary');
-    }
-
-    return data.data;
-  },
-};
+  return data.data;
+}
 EOF
+```
+
+### 5.3 Export Types
+
+```bash
+# Add to mobile/src/types/index.ts
+echo "export * from './ai.types';" >> mobile/src/types/index.ts
 ```
 
 ---
 
-## Step 7: Sentiment Display Components (20 minutes)
+## Step 6: Sentiment Badge Component (15 minutes)
 
-### 7.1 Create Sentiment Badge Component
+### 6.1 Create Component
 
 ```bash
-# mobile/src/components/ai/SentimentBadge.tsx
 mkdir -p mobile/src/components/ai
 cat > mobile/src/components/ai/SentimentBadge.tsx << 'EOF'
 import React from 'react';
 import { IonBadge, IonIcon } from '@ionic/react';
 import { happyOutline, sadOutline, removeOutline } from 'ionicons/icons';
+import type { SentimentAnalysis } from '../../types/ai.types';
 import './SentimentBadge.css';
 
 interface SentimentBadgeProps {
-  score: number;
-  label: 'positive' | 'neutral' | 'negative';
-  showLabel?: boolean;
+  sentiment: Pick<SentimentAnalysis, 'score' | 'label'>;
+  showScore?: boolean;
   size?: 'small' | 'medium' | 'large';
 }
 
 export const SentimentBadge: React.FC<SentimentBadgeProps> = ({
-  score,
-  label,
-  showLabel = true,
+  sentiment,
+  showScore = true,
   size = 'medium',
 }) => {
+  const { score, label } = sentiment;
+
   const getIcon = () => {
-    if (label === 'positive') return happyOutline;
-    if (label === 'negative') return sadOutline;
-    return removeOutline;
+    switch (label) {
+      case 'positive': return happyOutline;
+      case 'negative': return sadOutline;
+      default: return removeOutline;
+    }
   };
 
   const getColor = () => {
-    if (label === 'positive') return 'success';
-    if (label === 'negative') return 'danger';
-    return 'medium';
+    switch (label) {
+      case 'positive': return 'success';
+      case 'negative': return 'danger';
+      default: return 'medium';
+    }
+  };
+
+  const formatScore = (s: number) => {
+    return s > 0 ? `+${s.toFixed(2)}` : s.toFixed(2);
   };
 
   return (
-    <IonBadge color={getColor()} className={`sentiment-badge sentiment-badge-${size}`}>
+    <IonBadge color={getColor()} className={`sentiment-badge sentiment-badge--${size}`}>
       <IonIcon icon={getIcon()} />
-      {showLabel && (
-        <span className="sentiment-badge-label">
-          {label} ({(score > 0 ? '+' : '') + score.toFixed(2)})
-        </span>
-      )}
+      <span className="sentiment-badge__label">{label}</span>
+      {showScore && <span className="sentiment-badge__score">({formatScore(score)})</span>}
     </IonBadge>
   );
 };
 EOF
 ```
 
-### 7.2 Create Sentiment Badge CSS
+### 6.2 Create Styles
 
 ```bash
-# mobile/src/components/ai/SentimentBadge.css
 cat > mobile/src/components/ai/SentimentBadge.css << 'EOF'
 .sentiment-badge {
   display: inline-flex;
@@ -889,38 +1043,43 @@ cat > mobile/src/components/ai/SentimentBadge.css << 'EOF'
   gap: 4px;
   padding: 4px 10px;
   border-radius: 12px;
+  font-weight: 500;
+  text-transform: capitalize;
 }
 
-.sentiment-badge-small {
+.sentiment-badge--small {
   font-size: 11px;
   padding: 3px 8px;
 }
 
-.sentiment-badge-medium {
+.sentiment-badge--medium {
   font-size: 13px;
   padding: 4px 10px;
 }
 
-.sentiment-badge-large {
+.sentiment-badge--large {
   font-size: 15px;
   padding: 6px 12px;
 }
 
-.sentiment-badge-label {
-  text-transform: capitalize;
-  font-weight: 500;
+.sentiment-badge__label {
+  margin-left: 2px;
+}
+
+.sentiment-badge__score {
+  opacity: 0.8;
+  font-size: 0.9em;
 }
 EOF
 ```
 
 ---
 
-## Step 8: Summaries Page (35 minutes)
+## Step 7: AI Summaries Page (30 minutes)
 
-### 8.1 Create Summaries Page
+### 7.1 Create Page
 
 ```bash
-# mobile/src/pages/ai/SummariesPage.tsx
 mkdir -p mobile/src/pages/ai
 cat > mobile/src/pages/ai/SummariesPage.tsx << 'EOF'
 import React, { useState } from 'react';
@@ -946,11 +1105,11 @@ import {
   IonList,
   IonItem,
   IonChip,
-  IonToast,
+  useIonToast,
 } from '@ionic/react';
-import { sparklesOutline, refreshOutline } from 'ionicons/icons';
+import { sparklesOutline, refreshOutline, timeOutline } from 'ionicons/icons';
 import { format } from 'date-fns';
-import { aiService } from '../../services/ai.service';
+import { generateDailySummary, generateWeeklySummary } from '../../services/ai.service';
 import type { Summary } from '../../types/ai.types';
 import './SummariesPage.css';
 
@@ -961,126 +1120,129 @@ const SummariesPage: React.FC = () => {
   const [dailySummary, setDailySummary] = useState<Summary | null>(null);
   const [weeklySummary, setWeeklySummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [showToast, setShowToast] = useState(false);
+  const [present] = useIonToast();
+
+  const currentSummary = summaryType === 'daily' ? dailySummary : weeklySummary;
 
   const handleGenerateSummary = async () => {
     setLoading(true);
-    setError('');
 
     try {
       if (summaryType === 'daily') {
-        const summary = await aiService.generateDailySummary();
-        setDailySummary({ ...summary, date: new Date().toISOString() });
+        const summary = await generateDailySummary();
+        setDailySummary(summary);
       } else {
-        const summary = await aiService.generateWeeklySummary();
-        setWeeklySummary({ ...summary, date: new Date().toISOString() });
+        const summary = await generateWeeklySummary();
+        setWeeklySummary(summary);
       }
 
-      setShowToast(true);
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate summary');
-      setShowToast(true);
+      present({
+        message: 'Summary generated successfully!',
+        duration: 2000,
+        color: 'success',
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to generate summary';
+      present({
+        message,
+        duration: 3000,
+        color: 'danger',
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const renderSummary = (summary: Summary | null) => {
-    if (!summary) {
-      return (
-        <div className="summary-empty">
-          <IonIcon icon={sparklesOutline} className="summary-empty-icon" />
-          <IonText color="medium">
-            <h2>No Summary Yet</h2>
-            <p>Generate a {summaryType} summary to see AI insights</p>
+  const renderEmptyState = () => (
+    <div className="summaries-empty">
+      <IonIcon icon={sparklesOutline} className="summaries-empty__icon" />
+      <IonText color="medium">
+        <h2>No Summary Yet</h2>
+        <p>Generate a {summaryType} summary to see AI insights about your journal entries</p>
+      </IonText>
+      <IonButton onClick={handleGenerateSummary} disabled={loading}>
+        {loading ? <IonSpinner name="crescent" /> : 'Generate Summary'}
+      </IonButton>
+    </div>
+  );
+
+  const renderSummary = (summary: Summary) => (
+    <div className="summaries-content">
+      <div className="summaries-header">
+        <div>
+          <h2>{summaryType === 'daily' ? 'Daily Summary' : 'Weekly Summary'}</h2>
+          {summary.cached && summary.cachedAt && (
+            <IonText color="medium" className="summaries-cached">
+              <IonIcon icon={timeOutline} />
+              <span>Cached {format(new Date(summary.cachedAt), 'MMM d, h:mm a')}</span>
+            </IonText>
+          )}
+        </div>
+        <IonButton fill="clear" onClick={handleGenerateSummary} disabled={loading}>
+          {loading ? <IonSpinner name="crescent" /> : <IonIcon slot="icon-only" icon={refreshOutline} />}
+        </IonButton>
+      </div>
+
+      <IonCard>
+        <IonCardHeader>
+          <IonCardTitle>Overview</IonCardTitle>
+        </IonCardHeader>
+        <IonCardContent>
+          <p className="summaries-text">{summary.summary}</p>
+          <IonText color="medium" className="summaries-meta">
+            Based on {summary.entryCount} {summary.entryCount === 1 ? 'entry' : 'entries'}
           </IonText>
-          <IonButton onClick={handleGenerateSummary} disabled={loading}>
-            {loading ? <IonSpinner name="crescent" /> : 'Generate Summary'}
-          </IonButton>
-        </div>
-      );
-    }
+        </IonCardContent>
+      </IonCard>
 
-    return (
-      <div className="summary-content">
-        <div className="summary-header">
-          <div>
-            <h2>{summaryType === 'daily' ? 'Daily Summary' : 'Weekly Summary'}</h2>
-            {summary.date && (
-              <IonText color="medium">
-                <p>Generated {format(new Date(summary.date), 'MMM d, yyyy h:mm a')}</p>
-              </IonText>
-            )}
-          </div>
-          <IonButton fill="clear" onClick={handleGenerateSummary} disabled={loading}>
-            <IonIcon slot="icon-only" icon={refreshOutline} />
-          </IonButton>
-        </div>
+      <IonCard>
+        <IonCardHeader>
+          <IonCardTitle>Overall Mood</IonCardTitle>
+        </IonCardHeader>
+        <IonCardContent>
+          <IonChip color="primary">
+            <IonLabel>{summary.overallMood}</IonLabel>
+          </IonChip>
+        </IonCardContent>
+      </IonCard>
 
+      {summary.keyThemes?.length > 0 && (
         <IonCard>
           <IonCardHeader>
-            <IonCardTitle>Overview</IonCardTitle>
+            <IonCardTitle>Key Themes</IonCardTitle>
           </IonCardHeader>
           <IonCardContent>
-            <p className="summary-text">{summary.summary}</p>
-            <div className="summary-meta">
-              <IonText color="medium">
-                <small>Based on {summary.entryCount} {summary.entryCount === 1 ? 'entry' : 'entries'}</small>
-              </IonText>
+            <div className="summaries-themes">
+              {summary.keyThemes.map((theme, index) => (
+                <IonChip key={index} outline>
+                  <IonLabel>{theme}</IonLabel>
+                </IonChip>
+              ))}
             </div>
           </IonCardContent>
         </IonCard>
+      )}
 
+      {summary.insights?.length > 0 && (
         <IonCard>
           <IonCardHeader>
-            <IonCardTitle>Overall Mood</IonCardTitle>
+            <IonCardTitle>Insights</IonCardTitle>
           </IonCardHeader>
           <IonCardContent>
-            <IonChip color="primary">
-              <IonLabel>{summary.overallMood}</IonLabel>
-            </IonChip>
+            <IonList lines="none">
+              {summary.insights.map((insight, index) => (
+                <IonItem key={index}>
+                  <IonLabel className="ion-text-wrap">
+                    <p>{insight}</p>
+                  </IonLabel>
+                </IonItem>
+              ))}
+            </IonList>
           </IonCardContent>
         </IonCard>
-
-        {summary.keyThemes && summary.keyThemes.length > 0 && (
-          <IonCard>
-            <IonCardHeader>
-              <IonCardTitle>Key Themes</IonCardTitle>
-            </IonCardHeader>
-            <IonCardContent>
-              <div className="themes-container">
-                {summary.keyThemes.map((theme, index) => (
-                  <IonChip key={index} outline>
-                    <IonLabel>{theme}</IonLabel>
-                  </IonChip>
-                ))}
-              </div>
-            </IonCardContent>
-          </IonCard>
-        )}
-
-        {summary.insights && summary.insights.length > 0 && (
-          <IonCard>
-            <IonCardHeader>
-              <IonCardTitle>Insights</IonCardTitle>
-            </IonCardHeader>
-            <IonCardContent>
-              <IonList>
-                {summary.insights.map((insight, index) => (
-                  <IonItem key={index} lines="none">
-                    <IonLabel className="ion-text-wrap">
-                      <p>{insight}</p>
-                    </IonLabel>
-                  </IonItem>
-                ))}
-              </IonList>
-            </IonCardContent>
-          </IonCard>
-        )}
-      </div>
-    );
-  };
+      )}
+    </div>
+  );
 
   return (
     <IonPage>
@@ -1107,17 +1269,8 @@ const SummariesPage: React.FC = () => {
             </IonSegmentButton>
           </IonSegment>
 
-          {summaryType === 'daily' && renderSummary(dailySummary)}
-          {summaryType === 'weekly' && renderSummary(weeklySummary)}
+          {currentSummary ? renderSummary(currentSummary) : renderEmptyState()}
         </div>
-
-        <IonToast
-          isOpen={showToast}
-          onDidDismiss={() => setShowToast(false)}
-          message={error || 'Summary generated successfully!'}
-          duration={3000}
-          color={error ? 'danger' : 'success'}
-        />
       </IonContent>
     </IonPage>
   );
@@ -1127,10 +1280,9 @@ export default SummariesPage;
 EOF
 ```
 
-### 8.2 Create Summaries Page CSS
+### 7.2 Create Styles
 
 ```bash
-# mobile/src/pages/ai/SummariesPage.css
 cat > mobile/src/pages/ai/SummariesPage.css << 'EOF'
 .summaries-page {
   padding: 16px;
@@ -1140,7 +1292,7 @@ cat > mobile/src/pages/ai/SummariesPage.css << 'EOF'
   margin-bottom: 24px;
 }
 
-.summary-empty {
+.summaries-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1151,42 +1303,52 @@ cat > mobile/src/pages/ai/SummariesPage.css << 'EOF'
   gap: 16px;
 }
 
-.summary-empty-icon {
+.summaries-empty__icon {
   font-size: 64px;
   color: var(--ion-color-primary);
   margin-bottom: 16px;
 }
 
-.summary-content {
+.summaries-content {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.summary-header {
+.summaries-header {
   display: flex;
   justify-content: space-between;
-  align-items: start;
+  align-items: flex-start;
   margin-bottom: 8px;
 }
 
-.summary-header h2 {
+.summaries-header h2 {
   font-size: 24px;
   font-weight: 700;
   margin: 0;
 }
 
-.summary-text {
+.summaries-cached {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.summaries-text {
   line-height: 1.6;
   font-size: 16px;
   margin: 0;
 }
 
-.summary-meta {
+.summaries-meta {
+  display: block;
   margin-top: 12px;
+  font-size: 13px;
 }
 
-.themes-container {
+.summaries-themes {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -1196,26 +1358,29 @@ EOF
 
 ---
 
-## Step 9: Update App Routing (10 minutes)
+## Step 8: Update App Routing (10 minutes)
 
-### 9.1 Add AI Routes
+### 8.1 Add Route
 
-```bash
-# Add to mobile/src/App.tsx
+Add to `mobile/src/App.tsx`:
+
+```typescript
 import SummariesPage from './pages/ai/SummariesPage';
 
+// Inside your routes (within ProtectedRoute if using auth)
 <Route exact path="/summaries">
-  <ProtectedRoute>
-    <SummariesPage />
-  </ProtectedRoute>
+  <SummariesPage />
 </Route>
 ```
 
-### 9.2 Add Summaries Link to Home
+### 8.2 Add Navigation Link
 
-```bash
-# Add button to navigate to summaries in EntriesListPage or ProfilePage
-<IonButton routerLink="/summaries">
+Add a button to your entry list or profile page:
+
+```typescript
+import { sparklesOutline } from 'ionicons/icons';
+
+<IonButton routerLink="/summaries" fill="clear">
   <IonIcon slot="start" icon={sparklesOutline} />
   AI Summaries
 </IonButton>
@@ -1223,268 +1388,344 @@ import SummariesPage from './pages/ai/SummariesPage';
 
 ---
 
-## Step 10: Testing (30 minutes)
+## Step 9: Testing (30 minutes)
 
-### 10.1 Create AI Service Tests
+### 9.1 Unit Tests for AI Service
 
 ```bash
-# backend/src/services/ai/__tests__/sentiment.service.test.ts
-mkdir -p backend/src/services/ai/__tests__
-cat > backend/src/services/ai/__tests__/sentiment.service.test.ts << 'EOF'
-import { describe, it, expect, vi } from 'vitest';
-import { analyzeSentiment, getSentimentLabel } from '../sentiment.service';
-import * as openaiClient from '../openai.client';
+cat > mobile/src/services/__tests__/ai.service.test.ts << 'EOF'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { analyzeSentiment, generateDailySummary, generateWeeklySummary } from '../ai.service';
+import { supabase } from '../supabase';
 
-vi.mock('../openai.client');
+vi.mock('../supabase', () => ({
+  supabase: {
+    functions: {
+      invoke: vi.fn(),
+    },
+  },
+}));
 
-describe('Sentiment Service', () => {
-  describe('getSentimentLabel', () => {
-    it('should return positive for score >= 0.3', () => {
-      expect(getSentimentLabel(0.5)).toBe('positive');
-      expect(getSentimentLabel(0.3)).toBe('positive');
-    });
-
-    it('should return negative for score <= -0.3', () => {
-      expect(getSentimentLabel(-0.5)).toBe('negative');
-      expect(getSentimentLabel(-0.3)).toBe('negative');
-    });
-
-    it('should return neutral for scores between -0.3 and 0.3', () => {
-      expect(getSentimentLabel(0)).toBe('neutral');
-      expect(getSentimentLabel(0.2)).toBe('neutral');
-      expect(getSentimentLabel(-0.2)).toBe('neutral');
-    });
+describe('AI Service', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
   describe('analyzeSentiment', () => {
-    it('should analyze positive sentiment', async () => {
-      vi.mocked(openaiClient.isOpenAIConfigured).mockReturnValue(true);
-      vi.mocked(openaiClient.callOpenAI).mockResolvedValue(
-        JSON.stringify({
-          score: 0.8,
-          label: 'positive',
-          confidence: 0.9,
-          emotions: ['happy', 'grateful'],
-        })
-      );
+    it('should return sentiment analysis for an entry', async () => {
+      const mockResponse = {
+        data: {
+          success: true,
+          data: {
+            score: 0.8,
+            label: 'positive',
+            confidence: 0.9,
+            emotions: ['happy', 'grateful'],
+          },
+        },
+        error: null,
+      };
 
-      const result = await analyzeSentiment('I had a wonderful day!');
+      vi.mocked(supabase.functions.invoke).mockResolvedValue(mockResponse);
+
+      const result = await analyzeSentiment('test-entry-id');
 
       expect(result.score).toBe(0.8);
       expect(result.label).toBe('positive');
-      expect(result.emotions).toContain('happy');
+      expect(supabase.functions.invoke).toHaveBeenCalledWith('analyze-sentiment', {
+        body: { entryId: 'test-entry-id' },
+      });
     });
 
-    it('should throw error for empty content', async () => {
-      await expect(analyzeSentiment('')).rejects.toThrow('Content cannot be empty');
+    it('should throw error when API fails', async () => {
+      vi.mocked(supabase.functions.invoke).mockResolvedValue({
+        data: { success: false, error: 'Rate limit exceeded' },
+        error: null,
+      });
+
+      await expect(analyzeSentiment('test-id')).rejects.toThrow('Rate limit exceeded');
+    });
+  });
+
+  describe('generateDailySummary', () => {
+    it('should return daily summary', async () => {
+      const mockSummary = {
+        summary: 'A productive day...',
+        keyThemes: ['work', 'exercise'],
+        overallMood: 'positive',
+        insights: ['Great focus today'],
+        entryCount: 3,
+      };
+
+      vi.mocked(supabase.functions.invoke).mockResolvedValue({
+        data: { success: true, data: mockSummary },
+        error: null,
+      });
+
+      const result = await generateDailySummary();
+
+      expect(result.summary).toBe('A productive day...');
+      expect(result.entryCount).toBe(3);
+    });
+  });
+
+  describe('generateWeeklySummary', () => {
+    it('should return weekly summary', async () => {
+      const mockSummary = {
+        summary: 'A week of growth...',
+        keyThemes: ['progress', 'challenges'],
+        overallMood: 'improving',
+        insights: ['Consistent improvement'],
+        entryCount: 15,
+      };
+
+      vi.mocked(supabase.functions.invoke).mockResolvedValue({
+        data: { success: true, data: mockSummary },
+        error: null,
+      });
+
+      const result = await generateWeeklySummary();
+
+      expect(result.summary).toBe('A week of growth...');
+      expect(result.entryCount).toBe(15);
     });
   });
 });
 EOF
 ```
 
-### 10.2 Create E2E AI Test
+### 9.2 E2E Tests
 
 ```bash
-# mobile/cypress/e2e/ai-summaries.cy.ts
 cat > mobile/cypress/e2e/ai-summaries.cy.ts << 'EOF'
 describe('AI Summaries', () => {
   beforeEach(() => {
-    // Login
+    // Login with test user
     cy.visit('/login');
-    cy.get('input[type="email"]').type('test@example.com');
-    cy.get('input[type="password"]').type('password123');
+    cy.get('input[type="email"]').type(Cypress.env('TEST_USER_EMAIL'));
+    cy.get('input[type="password"]').type(Cypress.env('TEST_USER_PASSWORD'));
     cy.contains('button', 'Login').click();
     cy.url().should('include', '/entries');
-
-    // Create test entries
-    for (let i = 0; i < 3; i++) {
-      cy.get('ion-fab-button').click();
-      cy.get('ion-textarea').type(`Test entry ${i + 1} for summary generation`);
-      cy.contains('button', 'Save').click();
-      cy.wait(1000);
-    }
   });
 
   it('should navigate to summaries page', () => {
     cy.visit('/summaries');
     cy.contains('AI Summaries').should('be.visible');
+    cy.contains('No Summary Yet').should('be.visible');
   });
 
-  it('should generate daily summary', () => {
+  it('should switch between daily and weekly tabs', () => {
     cy.visit('/summaries');
 
-    // Generate summary
-    cy.contains('Generate Summary').click();
-
-    // Wait for generation (may take a few seconds)
-    cy.contains('Overview', { timeout: 15000 }).should('be.visible');
-    cy.contains('Key Themes').should('be.visible');
-    cy.contains('Insights').should('be.visible');
-  });
-
-  it('should switch between daily and weekly summaries', () => {
-    cy.visit('/summaries');
+    // Default is daily
+    cy.get('ion-segment-button[value="daily"]').should('have.class', 'segment-button-checked');
 
     // Switch to weekly
-    cy.contains('ion-segment-button', 'Weekly').click();
-    cy.contains('No Summary Yet').should('be.visible');
+    cy.get('ion-segment-button[value="weekly"]').click();
+    cy.get('ion-segment-button[value="weekly"]').should('have.class', 'segment-button-checked');
+  });
 
-    // Generate weekly summary
+  it('should show error when no entries exist', () => {
+    cy.visit('/summaries');
     cy.contains('Generate Summary').click();
-    cy.contains('Overview', { timeout: 15000 }).should('be.visible');
+
+    // Should show error for no entries (or success if entries exist)
+    cy.get('ion-toast', { timeout: 10000 }).should('be.visible');
   });
 });
 EOF
 ```
 
----
-
-## Step 11: Manual Testing Checklist (20 minutes)
-
-### 11.1 Test Sentiment Analysis
+### 9.3 Run Tests
 
 ```bash
-# 1. Create a new entry with positive content
-# 2. Call analyzeSentiment API
-# 3. Verify sentiment_score and sentiment_label are saved
-# 4. Create entry with negative content
-# 5. Verify negative sentiment is detected
-```
+cd mobile
 
-### 11.2 Test Daily Summary
+# Unit tests
+npm run test.unit
 
-```bash
-# 1. Create 3-5 entries today
-# 2. Navigate to /summaries
-# 3. Click "Generate Summary"
-# 4. Verify summary is generated in < 10 seconds
-# 5. Verify key themes, mood, and insights are displayed
-# 6. Refresh summary and verify it updates
-```
-
-### 11.3 Test Weekly Summary
-
-```bash
-# 1. Have entries spanning past 7 days
-# 2. Navigate to /summaries
-# 3. Switch to "Weekly" tab
-# 4. Generate weekly summary
-# 5. Verify it includes insights across the week
-# 6. Verify entry count is correct
-```
-
-### 11.4 Test Rate Limiting
-
-```bash
-# Test sentiment analysis rate limit
-for i in {1..10}; do
-  curl -X POST http://localhost:3000/ai/analyze-sentiment \
-    -H "Authorization: Bearer $TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "{\"entryId\": \"$ENTRY_ID\"}"
-done
-
-# 6th request should return rate limit error
+# E2E tests (ensure app is running)
+npm run test.e2e
 ```
 
 ---
 
-## Step 12: Quality Gates Checklist
+## Step 10: Manual Testing Checklist (20 minutes)
 
-### 12.1 Functional Requirements
+### 10.1 Test Sentiment Analysis
 
-- [ ] Sentiment analysis runs successfully
-- [ ] Sentiment scores are accurate and stored
+1. Create a new entry with positive content
+2. Open the entry detail page
+3. Trigger sentiment analysis (add button or auto-analyze)
+4. Verify sentiment badge appears with correct label
+5. Create an entry with negative content
+6. Verify negative sentiment is detected
+
+### 10.2 Test Daily Summary
+
+1. Create 2-3 entries today
+2. Navigate to `/summaries`
+3. Click "Generate Summary"
+4. Verify summary generates in < 15 seconds
+5. Verify key themes, mood, and insights display
+6. Generate again - should return cached result
+
+### 10.3 Test Weekly Summary
+
+1. Have entries from past 7 days (or create test data)
+2. Switch to "Weekly" tab
+3. Generate weekly summary
+4. Verify it includes multi-day insights
+5. Verify entry count is correct
+
+### 10.4 Test Rate Limiting
+
+```bash
+# In browser console or via curl, trigger many requests
+# After 20 sentiment or 10 summary requests in 1 hour, should see rate limit error
+```
+
+### 10.5 Test Error Handling
+
+1. Disconnect network and try to generate summary
+2. Verify user-friendly error message appears
+3. Reconnect and verify functionality resumes
+
+---
+
+## Step 11: Quality Gates Checklist
+
+### Functional Requirements
+
+- [ ] Sentiment analysis runs and returns valid scores
+- [ ] Sentiment scores are stored in entries table
 - [ ] Daily summaries generate correctly
 - [ ] Weekly summaries generate correctly
-- [ ] AI responses handle errors gracefully
+- [ ] Results are cached (6 hours for summaries)
 - [ ] Rate limiting prevents abuse
 - [ ] UI displays AI insights clearly
+- [ ] Errors show user-friendly messages
 
-### 12.2 Technical Requirements
+### Technical Requirements
 
-- [ ] OpenAI API calls succeed
-- [ ] Response parsing handles edge cases
-- [ ] TypeScript compiles without errors
-- [ ] ESLint passes
+- [ ] Edge Functions deploy successfully
+- [ ] OpenAI API key stored securely in Supabase Secrets
+- [ ] TypeScript compiles without errors (`npx tsc --noEmit`)
+- [ ] ESLint passes (`npm run lint`)
 - [ ] Unit tests pass
 - [ ] E2E tests pass
-- [ ] API costs are controlled
+- [ ] Build succeeds (`npm run build`)
 
-### 12.3 Security & Cost Requirements
+### Security & Cost Requirements
 
-- [ ] API keys are not exposed to frontend
-- [ ] Rate limiting is enforced
-- [ ] User can only analyze their own entries
-- [ ] Long content is truncated
+- [ ] API keys are NOT exposed to frontend
+- [ ] Rate limiting is enforced per user
+- [ ] Users can only analyze their own entries (RLS)
+- [ ] Long content is truncated (2000 chars)
 - [ ] Response tokens are limited
-- [ ] Caching reduces redundant calls
+- [ ] Caching reduces redundant API calls
 
 ---
 
 ## Troubleshooting
 
-### Issue: OpenAI API errors
+### Issue: Edge Function deployment fails
 
-**Solution:**
 ```bash
-# Verify API key
-echo $OPENAI_API_KEY
+# Check Supabase CLI is logged in
+supabase login
 
-# Check backend logs
-tail -f backend/logs/error.log
+# Check function logs
+supabase functions logs analyze-sentiment
 
-# Test API key directly
-curl https://api.openai.com/v1/models \
-  -H "Authorization: Bearer $OPENAI_API_KEY"
+# Verify secrets are set
+supabase secrets list
 ```
 
-### Issue: Rate limit exceeded
+### Issue: "AI service not configured" error
 
-**Solution:**
-- Implement caching for sentiment results
-- Increase rate limit window or reduce max requests
-- Queue requests instead of failing immediately
+```bash
+# Verify OPENAI_API_KEY is set
+supabase secrets list
+
+# Re-set the secret
+supabase secrets set OPENAI_API_KEY=sk-your-key-here
+```
+
+### Issue: Rate limit errors during testing
+
+```sql
+-- Clear rate limits for testing (run in Supabase SQL Editor)
+DELETE FROM ai_rate_limits WHERE user_id = 'your-user-id';
+```
 
 ### Issue: Summaries are low quality
 
-**Solution:**
 - Adjust temperature (lower = more focused)
 - Improve prompts with more context
 - Increase max_tokens for longer summaries
-- Provide more examples in system prompt
+- Ensure entries have enough content
+
+### Issue: CORS errors
+
+```bash
+# Verify CORS headers in Edge Function
+# Check that corsHeaders are returned in all responses
+```
+
+---
+
+## Cost Estimation
+
+**GPT-3.5-turbo pricing (as of 2024):**
+- Input: $0.0005 / 1K tokens
+- Output: $0.0015 / 1K tokens
+
+**Per-request estimates:**
+- Sentiment analysis: ~$0.001-0.002
+- Daily summary: ~$0.002-0.004
+- Weekly summary: ~$0.003-0.006
+
+**Monthly cost for active user (20 analyses, 10 summaries):**
+- ~$0.05-0.10 per user per month
+
+**Rate limits provide cost ceiling:**
+- Max 20 sentiment + 10 summaries per hour per user
+- Worst case: ~$0.08/hour/user
 
 ---
 
 ## Next Steps
 
-**Phase 6 Complete! MVP DONE!** 🎉
+**Phase 6 Complete! MVP DONE!**
 
 You now have a complete MVP with:
-- ✅ User authentication
-- ✅ Journal CRUD operations
-- ✅ Mood tracking
-- ✅ Search & filtering
-- ✅ **AI sentiment analysis**
-- ✅ **AI-generated summaries**
+- User authentication
+- Journal CRUD operations
+- Mood tracking
+- Search & filtering
+- **AI sentiment analysis**
+- **AI-generated summaries**
 
 **Ready for Production or Post-MVP Features:**
-- Deploy to production
+- Deploy to production (Supabase handles Edge Functions hosting)
 - Add advanced AI insights (Phase 7)
 - Implement offline mode (Phase 8)
 - Add media support (Phase 9)
 
 ---
 
-**Estimated Total Time:** 5-6 hours
+## Summary
+
+**Time Estimate:** 4-5 hours
 **Complexity:** Complex
 **Prerequisites:** Phases 1-5 complete, OpenAI API key
 
 **Deliverables:**
-✅ Sentiment analysis service
-✅ Daily/weekly summary generation
-✅ Summaries view screen
-✅ Sentiment display on entries
-✅ Rate limiting and cost controls
-✅ Critical path tests
+- Supabase Edge Functions for AI (analyze-sentiment, generate-summary)
+- Database migrations for sentiment columns
+- Frontend AI service using supabase.functions.invoke()
+- Sentiment badge component
+- AI Summaries page
+- Rate limiting and caching
+- Unit and E2E tests

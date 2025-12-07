@@ -1,10 +1,14 @@
 export type MoodType = 'happy' | 'sad' | 'anxious' | 'calm' | 'stressed' | 'neutral';
 
+export type SentimentLabel = 'positive' | 'neutral' | 'negative';
+
 export interface Entry {
   id: string;
   user_id: string;
   content: string;
   mood: MoodType | null;
+  sentiment_score: number | null;
+  sentiment_label: SentimentLabel | null;
   created_at: string;
   updated_at: string;
 }

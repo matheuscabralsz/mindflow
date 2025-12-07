@@ -53,14 +53,15 @@ supabase reset
 
 ### Supabase (prod)
 ```bash
-# Login to Supabase CLI
-npx supabase login
+npx supabase login                              # Login to CLI
+npx supabase link --project-ref <project-ref>   # Link project
+npx supabase db push                            # Apply migrations
+```
 
-# Link project
-npx supabase link --project-ref <project-ref>
-
-# Run migrations
-npx supabase db push
+### Edge Functions
+```bash
+npx supabase secrets set OPENAI_API_KEY=sk-xxx  # Set secrets
+npx supabase functions deploy                    # Deploy all functions
 ```
 
 ## Documentation

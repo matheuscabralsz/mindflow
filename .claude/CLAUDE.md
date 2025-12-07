@@ -43,7 +43,10 @@ mindflow/
 │   │   └── theme/              # Styling and theme config
 │   ├── cypress/e2e/            # E2E tests
 │   └── [config files]          # capacitor.config.ts, vite.config.ts, etc.
-├── supabase/migrations/        # Database migrations
+├── supabase/
+│   ├── schemas/                # Source of truth (edit these)
+│   ├── migrations/             # Generated migrations (via CLI)
+│   └── functions/              # Edge Functions (AI)
 ├── docs/                       # Project docs (initial-idea.md, phases/)
 └── .claude/                    # This file + future guides
 ```
@@ -89,7 +92,30 @@ npm run test.e2e                 # Cypress E2E (headless)
 npx cypress open                 # Cypress E2E (interactive)
 
 # Database
-npx supabase db push             # Apply migrations
+npx supabase migration new <name>  # Create migration file
+npx supabase db push               # Apply migrations (prod)
+supabase db reset                  # Reset local DB
+```
+
+---
+
+## Database Workflow
+
+**Schema files are the source of truth.** Migrations contain delta changes.
+
+1. Edit schema in `supabase/schemas/XX_name.sql`
+2. Create migration: `npx supabase migration new <name>`
+3. Add delta SQL to the generated migration file
+4. Apply: `npx supabase db push` (prod) or `supabase db reset` (local)
+
+---
+
+## Edge Functions Deployment
+
+```bash
+npx supabase secrets set OPENAI_API_KEY=sk-xxx  # Set secrets
+npx supabase functions deploy                    # Deploy all functions
+npx supabase functions deploy <name>             # Deploy specific function
 ```
 
 ---
