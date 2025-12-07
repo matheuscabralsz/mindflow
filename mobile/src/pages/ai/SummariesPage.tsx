@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   IonContent,
   IonPage,
@@ -25,7 +25,7 @@ import {
 } from '@ionic/react';
 import { sparklesOutline, refreshOutline, timeOutline } from 'ionicons/icons';
 import { format } from 'date-fns';
-import { generateDailySummary, generateWeeklySummary } from '../../services/ai.service';
+import { generateDailySummary, generateWeeklySummary, getCachedSummary } from '../../services/ai.service';
 import type { Summary } from '../../types/ai.types';
 import './SummariesPage.css';
 
@@ -36,9 +36,31 @@ const SummariesPage: React.FC = () => {
   const [dailySummary, setDailySummary] = useState<Summary | null>(null);
   const [weeklySummary, setWeeklySummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [present] = useIonToast();
 
   const currentSummary = summaryType === 'daily' ? dailySummary : weeklySummary;
+
+  // Load cached summaries on mount
+  useEffect(() => {
+    const loadCachedSummaries = async () => {
+      try {
+        const [daily, weekly] = await Promise.all([
+          getCachedSummary('daily'),
+          getCachedSummary('weekly'),
+        ]);
+
+        if (daily) setDailySummary(daily);
+        if (weekly) setWeeklySummary(weekly);
+      } catch (err) {
+        console.error('Failed to load cached summaries:', err);
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    loadCachedSummaries();
+  }, []);
 
   const handleGenerateSummary = async () => {
     setLoading(true);
@@ -185,7 +207,18 @@ const SummariesPage: React.FC = () => {
             </IonSegmentButton>
           </IonSegment>
 
-          {currentSummary ? renderSummary(currentSummary) : renderEmptyState()}
+          {initialLoading ? (
+            <div className="summaries-loading">
+              <IonSpinner name="crescent" />
+              <IonText color="medium">
+                <p>Loading summaries...</p>
+              </IonText>
+            </div>
+          ) : currentSummary ? (
+            renderSummary(currentSummary)
+          ) : (
+            renderEmptyState()
+          )}
         </div>
       </IonContent>
     </IonPage>
