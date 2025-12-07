@@ -4,72 +4,76 @@ An AI-powered mobile journal app that helps users write daily journal entries, t
 
 ## Project Structure
 
-- `mobile/` - React Native Expo app (iOS + Android)
-- `backend/` - Node.js Express API server
+- `mobile/` - Ionic + React + Vite app (iOS + Android via Capacitor)
 - `supabase/` - Database migrations (Supabase CLI)
-- `shared/` - Shared TypeScript types
 - `docs/` - Documentation
 
 ## Quick Start
 
 ### Prerequisites
 - Node.js 18+
-- iOS Simulator (Mac) or Android Studio
+- iOS Simulator (Mac) or Android Studio (for native builds)
 - Supabase account
 
 ### Frontend Setup
 ```bash
 cd mobile
 npm install
-npx expo start
+npm run dev                      # Vite dev server (http://localhost:5173)
+
+# Native development (optional)
+npm run cap:sync                 # Sync web → native
+npm run cap:open:ios             # Open Xcode (Mac only)
+npm run cap:open:android         # Open Android Studio
 ```
 
-### Backend Setup
+### Environment Variables
 ```bash
-cd backend
-npm install
-npm run dev
+# mobile/.env
+VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_ANON_KEY=xxx
 ```
 
 ### Supabase Setup
-```aiexclude
-// create a supabase migration from schema changes
+```bash
+# Create a supabase migration from schema changes
 npx supabase db diff -f <migration-name>
 ```
 
-### supabase (local)
-```
-// obs: need docker running
+### Supabase (local)
+```bash
+# Requires Docker running
 supabase start
 
-// reset supabase database with schema changes
- supabase reset
+# Reset supabase database with schema changes
+supabase reset
 ```
 
 ### Supabase (prod)
-```
-// login to Supabase CLI
+```bash
+# Login to Supabase CLI
 npx supabase login
 
-// link project to backend
+# Link project
 npx supabase link --project-ref <project-ref>
 
-// run migrations
+# Run migrations
 npx supabase db push
 ```
 
 ## Documentation
 
-- [Implementation Plan](docs/implementation-plan.md)
-- [Phase 1 Details](docs/phase-1-implementation-plan-details.md)
+- [Initial Idea](docs/initial-idea.md)
+- [Phase Documentation](docs/phases/)
 - [Project Instructions](.claude/CLAUDE.md)
 
 ## Tech Stack
 
-- Frontend: React Native with Expo, TypeScript, Zustand
-- Backend: Node.js, Express, TypeScript
+- Frontend: Ionic 8 + React 19 + Vite + TypeScript
+- State Management: Zustand
+- Native: Capacitor 7
 - Database: PostgreSQL (Supabase)
-- AI: OpenAI API
+- AI: OpenAI API (Phase 6+)
 - Auth: Supabase Auth
 
 ## License
