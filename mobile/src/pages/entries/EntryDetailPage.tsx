@@ -11,22 +11,19 @@ import {
   IonPage,
   IonHeader,
   IonToolbar,
-  IonTitle,
   IonButtons,
   IonBackButton,
   IonButton,
   IonIcon,
-  IonCard,
-  IonCardContent,
   IonSpinner,
   IonText,
   IonAlert,
   IonToast,
 } from '@ionic/react';
-import { createOutline, trashOutline } from 'ionicons/icons';
-import { format } from 'date-fns';
+import { createOutline, trashOutline, calendarOutline, documentTextOutline } from 'ionicons/icons';
+import { format, isToday, isYesterday } from 'date-fns';
 import { useEntriesStore } from '../../store/entriesStore';
-import { getMoodEmoji, getMoodLabel } from '../../utils/moods';
+import { getMoodEmoji, getMoodLabel, getMoodColor } from '../../utils/moods';
 
 export const EntryDetailPage: React.FC = () => {
   const history = useHistory();
@@ -60,9 +57,15 @@ export const EntryDetailPage: React.FC = () => {
   };
 
   // Format date for display
-  const displayDate = date
-    ? format(new Date(date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')
-    : '';
+  const formatDisplayDate = () => {
+    if (!date) return '';
+    const dateObj = new Date(date + 'T00:00:00');
+    if (isToday(dateObj)) return 'Today';
+    if (isYesterday(dateObj)) return 'Yesterday';
+    return format(dateObj, 'EEEE, MMM d');
+  };
+
+  const fullDate = date ? format(new Date(date + 'T00:00:00'), 'MMMM d, yyyy') : '';
 
   if (loading && !selectedEntry) {
     return (
@@ -70,9 +73,8 @@ export const EntryDetailPage: React.FC = () => {
         <IonHeader>
           <IonToolbar>
             <IonButtons slot="start">
-              <IonBackButton defaultHref="/entries" />
+              <IonBackButton defaultHref="/entries" text="" />
             </IonButtons>
-            <IonTitle>Entry</IonTitle>
           </IonToolbar>
         </IonHeader>
         <IonContent>
@@ -81,7 +83,7 @@ export const EntryDetailPage: React.FC = () => {
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              height: '50vh',
+              height: '60vh',
             }}
           >
             <IonSpinner name="crescent" />
@@ -97,29 +99,62 @@ export const EntryDetailPage: React.FC = () => {
         <IonHeader>
           <IonToolbar>
             <IonButtons slot="start">
-              <IonBackButton defaultHref="/entries" />
+              <IonBackButton defaultHref="/entries" text="" />
             </IonButtons>
-            <IonTitle>Entry</IonTitle>
           </IonToolbar>
         </IonHeader>
-        <IonContent className="ion-padding">
-          <IonText color="danger">
-            <h2>Entry not found</h2>
-            <p>{error || 'No entry exists for this date.'}</p>
-          </IonText>
+        <IonContent>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '60vh',
+              textAlign: 'center',
+              padding: '32px',
+            }}
+          >
+            <div
+              style={{
+                width: '80px',
+                height: '80px',
+                borderRadius: '50%',
+                background: 'var(--ion-color-light)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '24px',
+              }}
+            >
+              <IonIcon
+                icon={documentTextOutline}
+                style={{ fontSize: '40px', color: 'var(--ion-color-medium)' }}
+              />
+            </div>
+            <h2 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '600' }}>
+              Entry not found
+            </h2>
+            <IonText color="medium">
+              <p style={{ margin: 0, lineHeight: '1.5' }}>
+                {error || 'No entry exists for this date.'}
+              </p>
+            </IonText>
+          </div>
         </IonContent>
       </IonPage>
     );
   }
+
+  const moodColor = selectedEntry.mood ? getMoodColor(selectedEntry.mood) : null;
 
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar>
           <IonButtons slot="start">
-            <IonBackButton defaultHref="/entries" />
+            <IonBackButton defaultHref="/entries" text="" />
           </IonButtons>
-          <IonTitle>Entry</IonTitle>
           <IonButtons slot="end">
             <IonButton onClick={handleEdit}>
               <IonIcon slot="icon-only" icon={createOutline} />
@@ -131,37 +166,75 @@ export const EntryDetailPage: React.FC = () => {
         </IonToolbar>
       </IonHeader>
 
-      <IonContent className="ion-padding">
-        <IonCard>
-          <IonCardContent>
-            {/* Date and Mood Header */}
+      <IonContent>
+        <div style={{ padding: '20px' }}>
+          {/* Date Header */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '20px',
+            }}
+          >
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                background: 'var(--ion-color-primary-tint)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <IonIcon
+                icon={calendarOutline}
+                style={{ fontSize: '24px', color: 'var(--ion-color-primary)' }}
+              />
+            </div>
+            <div>
+              <div style={{ fontWeight: '600', fontSize: '20px' }}>{formatDisplayDate()}</div>
+              <IonText color="medium">
+                <span style={{ fontSize: '14px' }}>{fullDate}</span>
+              </IonText>
+            </div>
+          </div>
+
+          {/* Mood Display */}
+          {selectedEntry.mood && (
             <div
               style={{
                 display: 'flex',
-                justifyContent: 'space-between',
                 alignItems: 'center',
+                gap: '12px',
+                padding: '14px 16px',
+                background: `${moodColor}10`,
+                border: `1px solid ${moodColor}30`,
+                borderRadius: '14px',
                 marginBottom: '20px',
-                paddingBottom: '12px',
-                borderBottom: '1px solid var(--ion-color-light)',
               }}
             >
+              <span style={{ fontSize: '32px' }}>{getMoodEmoji(selectedEntry.mood)}</span>
               <div>
-                <IonText>
-                  <h2 style={{ margin: 0 }}>{displayDate}</h2>
-                </IonText>
-              </div>
-              {selectedEntry.mood && (
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '36px' }}>{getMoodEmoji(selectedEntry.mood)}</div>
-                  <IonText color="medium">
-                    <small>{getMoodLabel(selectedEntry.mood)}</small>
-                  </IonText>
+                <div style={{ fontWeight: '600', fontSize: '15px', color: moodColor || undefined }}>
+                  Feeling {getMoodLabel(selectedEntry.mood)}
                 </div>
-              )}
+              </div>
             </div>
+          )}
 
-            {/* Entry Content */}
-            <IonText>
+          {/* Entry Content */}
+          <div
+            style={{
+              padding: '20px',
+              background: 'var(--ion-background-color, #fff)',
+              border: '1px solid var(--ion-color-light)',
+              borderRadius: '16px',
+              marginBottom: '20px',
+            }}
+          >
+            {selectedEntry.content ? (
               <div
                 style={{
                   fontSize: '16px',
@@ -172,26 +245,24 @@ export const EntryDetailPage: React.FC = () => {
               >
                 {selectedEntry.content}
               </div>
-            </IonText>
-
-            {/* Metadata Footer */}
-            <div
-              style={{
-                marginTop: '24px',
-                paddingTop: '12px',
-                borderTop: '1px solid var(--ion-color-light)',
-              }}
-            >
+            ) : (
               <IonText color="medium">
-                <small>
-                  {selectedEntry.updated_at !== selectedEntry.created_at && (
-                    <>Last edited {format(new Date(selectedEntry.updated_at), 'PPp')}</>
-                  )}
-                </small>
+                <div style={{ fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>
+                  No content written yet
+                </div>
               </IonText>
-            </div>
-          </IonCardContent>
-        </IonCard>
+            )}
+          </div>
+
+          {/* Metadata Footer */}
+          {selectedEntry.updated_at !== selectedEntry.created_at && (
+            <IonText color="medium">
+              <div style={{ fontSize: '12px', textAlign: 'center' }}>
+                Last edited {format(new Date(selectedEntry.updated_at), 'MMM d, yyyy \'at\' h:mm a')}
+              </div>
+            </IonText>
+          )}
+        </div>
 
         {/* Delete Confirmation Alert */}
         <IonAlert
@@ -215,13 +286,20 @@ export const EntryDetailPage: React.FC = () => {
         {/* Success Toast */}
         <IonToast
           isOpen={deleteSuccess}
-          message="Entry deleted successfully"
-          duration={2000}
+          message="Entry deleted"
+          duration={1500}
           color="success"
+          position="top"
         />
 
         {/* Error Toast */}
-        <IonToast isOpen={!!error} message={error || ''} duration={3000} color="danger" />
+        <IonToast
+          isOpen={!!error}
+          message={error || ''}
+          duration={3000}
+          color="danger"
+          position="top"
+        />
       </IonContent>
     </IonPage>
   );

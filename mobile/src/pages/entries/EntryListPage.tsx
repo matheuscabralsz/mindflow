@@ -1,6 +1,6 @@
 /**
  * EntryList Page
- * Displays all journal entries with infinite scroll
+ * Displays all journal entries with improved styling
  */
 
 import React, { useEffect } from 'react';
@@ -13,22 +13,19 @@ import {
   IonTitle,
   IonButtons,
   IonButton,
+  IonBackButton,
   IonIcon,
   IonFab,
   IonFabButton,
-  IonCard,
-  IonCardHeader,
-  IonCardTitle,
-  IonCardContent,
   IonSpinner,
   IonText,
   IonRefresher,
   IonRefresherContent,
 } from '@ionic/react';
-import { add, personCircle, search, sparklesOutline } from 'ionicons/icons';
-import { format } from 'date-fns';
+import { add, search, sparklesOutline, journalOutline } from 'ionicons/icons';
+import { format, isToday, isYesterday } from 'date-fns';
 import { useEntriesStore } from '../../store/entriesStore';
-import { getMoodEmoji } from '../../utils/moods';
+import { getMoodEmoji, getMoodColor } from '../../utils/moods';
 
 export const EntryListPage: React.FC = () => {
   const history = useHistory();
@@ -51,10 +48,6 @@ export const EntryListPage: React.FC = () => {
     history.push('/entries/edit');
   };
 
-  const handleProfileClick = () => {
-    history.push('/profile');
-  };
-
   const handleSearchClick = () => {
     history.push('/search');
   };
@@ -63,10 +56,20 @@ export const EntryListPage: React.FC = () => {
     history.push('/summaries');
   };
 
+  const formatEntryDate = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00');
+    if (isToday(date)) return 'Today';
+    if (isYesterday(date)) return 'Yesterday';
+    return format(date, 'EEEE, MMM d');
+  };
+
   return (
     <IonPage>
       <IonHeader>
-        <IonToolbar color="primary">
+        <IonToolbar>
+          <IonButtons slot="start">
+            <IonBackButton defaultHref="/home" />
+          </IonButtons>
           <IonTitle>My Journal</IonTitle>
           <IonButtons slot="end">
             <IonButton onClick={handleSummariesClick} aria-label="AI summaries">
@@ -75,14 +78,11 @@ export const EntryListPage: React.FC = () => {
             <IonButton onClick={handleSearchClick} aria-label="search">
               <IonIcon slot="icon-only" icon={search} />
             </IonButton>
-            <IonButton onClick={handleProfileClick}>
-              <IonIcon slot="icon-only" icon={personCircle} />
-            </IonButton>
           </IonButtons>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent className="ion-padding">
+      <IonContent>
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
           <IonRefresherContent />
         </IonRefresher>
@@ -93,7 +93,7 @@ export const EntryListPage: React.FC = () => {
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              height: '50vh',
+              height: '60vh',
             }}
           >
             <IonSpinner name="crescent" />
@@ -101,11 +101,17 @@ export const EntryListPage: React.FC = () => {
         )}
 
         {error && (
-          <IonCard color="danger">
-            <IonCardContent>
-              <IonText color="light">{error}</IonText>
-            </IonCardContent>
-          </IonCard>
+          <div
+            style={{
+              margin: '20px',
+              padding: '16px',
+              background: 'var(--ion-color-danger-tint)',
+              borderRadius: '12px',
+              color: 'var(--ion-color-danger-shade)',
+            }}
+          >
+            <IonText>{error}</IonText>
+          </div>
         )}
 
         {!loading && entries.length === 0 && !error && (
@@ -115,49 +121,129 @@ export const EntryListPage: React.FC = () => {
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              height: '50vh',
+              height: '60vh',
               textAlign: 'center',
-              padding: '20px',
+              padding: '32px',
             }}
           >
+            <div
+              style={{
+                width: '80px',
+                height: '80px',
+                borderRadius: '50%',
+                background: 'var(--ion-color-light)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '24px',
+              }}
+            >
+              <IonIcon
+                icon={journalOutline}
+                style={{ fontSize: '40px', color: 'var(--ion-color-medium)' }}
+              />
+            </div>
+            <h2 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '600' }}>
+              No entries yet
+            </h2>
             <IonText color="medium">
-              <h2>No entries yet</h2>
-              <p>Start your journaling journey by creating your first entry!</p>
+              <p style={{ margin: '0 0 24px 0', lineHeight: '1.5' }}>
+                Start your journaling journey by<br />creating your first entry
+              </p>
             </IonText>
-            <IonButton onClick={handleNewEntry} style={{ marginTop: '20px' }}>
+            <IonButton onClick={handleNewEntry} shape="round">
               <IonIcon slot="start" icon={add} />
-              Create Entry
+              Write First Entry
             </IonButton>
           </div>
         )}
 
-        {entries.map((entry) => (
-          <IonCard key={entry.id} button onClick={() => handleEntryClick(entry.entry_date)}>
-            <IonCardHeader>
-              <div
+        {entries.length > 0 && (
+          <div style={{ padding: '12px 16px 100px 16px' }}>
+            {entries.map((entry) => (
+              <button
+                key={entry.id}
+                onClick={() => handleEntryClick(entry.entry_date)}
                 style={{
+                  width: '100%',
                   display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
+                  alignItems: 'flex-start',
+                  gap: '14px',
+                  padding: '16px',
+                  marginBottom: '10px',
+                  background: 'var(--ion-background-color, #fff)',
+                  border: '1px solid var(--ion-color-light)',
+                  borderRadius: '14px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'transform 0.1s ease',
                 }}
               >
-                <IonCardTitle>{format(new Date(entry.entry_date + 'T00:00:00'), 'PPP')}</IonCardTitle>
-                {entry.mood && (
-                  <span style={{ fontSize: '24px' }}>{getMoodEmoji(entry.mood)}</span>
-                )}
-              </div>
-            </IonCardHeader>
-            <IonCardContent>
-              <IonText>
-                {entry.content.length > 150
-                  ? `${entry.content.substring(0, 150)}...`
-                  : entry.content}
-              </IonText>
-            </IonCardContent>
-          </IonCard>
-        ))}
+                {/* Mood indicator */}
+                <div
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '12px',
+                    background: entry.mood
+                      ? `${getMoodColor(entry.mood)}15`
+                      : 'var(--ion-color-light)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  {entry.mood ? (
+                    <span style={{ fontSize: '24px' }}>{getMoodEmoji(entry.mood)}</span>
+                  ) : (
+                    <IonIcon
+                      icon={journalOutline}
+                      style={{ fontSize: '20px', color: 'var(--ion-color-medium)' }}
+                    />
+                  )}
+                </div>
 
-        <IonFab vertical="bottom" horizontal="end" slot="fixed">
+                {/* Content */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    <span style={{ fontWeight: '600', fontSize: '15px' }}>
+                      {formatEntryDate(entry.entry_date)}
+                    </span>
+                    <IonText color="medium">
+                      <span style={{ fontSize: '12px' }}>
+                        {format(new Date(entry.entry_date + 'T00:00:00'), 'MMM d')}
+                      </span>
+                    </IonText>
+                  </div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: '14px',
+                      lineHeight: '1.5',
+                      color: 'var(--ion-color-medium-shade)',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {entry.content || 'No content yet...'}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <IonFab vertical="bottom" horizontal="end" slot="fixed" style={{ marginBottom: '16px', marginRight: '16px' }}>
           <IonFabButton onClick={handleNewEntry}>
             <IonIcon icon={add} />
           </IonFabButton>

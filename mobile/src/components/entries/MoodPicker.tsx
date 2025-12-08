@@ -1,12 +1,12 @@
 /**
  * MoodPicker Component
- * Allows users to select their current mood with emoji buttons
+ * Beautiful mood selection with emoji buttons
  */
 
 import React from 'react';
-import { IonButton, IonButtons } from '@ionic/react';
+import { IonText } from '@ionic/react';
 import type { MoodType } from '../../types';
-import { MOODS } from '../../utils/moods';
+import { MOODS, getMoodColor } from '../../utils/moods';
 
 interface MoodPickerProps {
   selectedMood: MoodType | null;
@@ -21,50 +21,91 @@ export const MoodPicker: React.FC<MoodPickerProps> = ({
 }) => {
   return (
     <div>
-      <div style={{ marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
+      <div
+        style={{
+          marginBottom: '12px',
+          fontSize: '15px',
+          fontWeight: '600',
+          color: 'var(--ion-text-color)',
+        }}
+      >
         How are you feeling?
       </div>
-      <IonButtons style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-        {MOODS.map((mood) => (
-          <IonButton
-            key={mood.value}
-            data-mood={mood.value}
-            fill={selectedMood === mood.value ? 'solid' : 'outline'}
-            color={selectedMood === mood.value ? 'primary' : 'medium'}
-            onClick={() => onMoodSelect(mood.value)}
-            disabled={disabled}
-            style={{
-              fontSize: '24px',
-              minWidth: '60px',
-              height: '60px',
-              margin: 0,
-            }}
-          >
-            <div
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '10px',
+        }}
+      >
+        {MOODS.map((mood) => {
+          const isSelected = selectedMood === mood.value;
+          const moodColor = getMoodColor(mood.value);
+
+          return (
+            <button
+              key={mood.value}
+              data-mood={mood.value}
+              onClick={() => onMoodSelect(isSelected ? null : mood.value)}
+              disabled={disabled}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: '4px',
+                justifyContent: 'center',
+                gap: '6px',
+                padding: '14px 8px',
+                background: isSelected ? `${moodColor}15` : 'var(--ion-background-color, #fff)',
+                border: isSelected ? `2px solid ${moodColor}` : '2px solid var(--ion-color-light)',
+                borderRadius: '14px',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                opacity: disabled ? 0.6 : 1,
+                transition: 'all 0.15s ease',
               }}
             >
-              <span>{mood.emoji}</span>
-              <span style={{ fontSize: '10px' }}>{mood.label}</span>
-            </div>
-          </IonButton>
-        ))}
-      </IonButtons>
+              <span
+                style={{
+                  fontSize: '28px',
+                  transform: isSelected ? 'scale(1.1)' : 'scale(1)',
+                  transition: 'transform 0.15s ease',
+                }}
+              >
+                {mood.emoji}
+              </span>
+              <span
+                style={{
+                  fontSize: '12px',
+                  fontWeight: isSelected ? '600' : '500',
+                  color: isSelected ? moodColor : 'var(--ion-color-medium)',
+                }}
+              >
+                {mood.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
       {selectedMood && (
-        <IonButton
-          fill="clear"
-          size="small"
-          onClick={() => onMoodSelect(null)}
-          disabled={disabled}
-          style={{ marginTop: '8px' }}
-        >
-          Clear mood
-        </IonButton>
+        <div style={{ marginTop: '12px', textAlign: 'center' }}>
+          <IonText color="medium">
+            <button
+              onClick={() => onMoodSelect(null)}
+              disabled={disabled}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--ion-color-medium)',
+                fontSize: '13px',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                opacity: disabled ? 0.6 : 1,
+              }}
+            >
+              Clear selection
+            </button>
+          </IonText>
+        </div>
       )}
     </div>
   );
