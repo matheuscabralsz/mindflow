@@ -19,11 +19,11 @@ import {
   IonToast,
   IonText,
   IonIcon,
-  IonTextarea,
 } from '@ionic/react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { calendarOutline, checkmarkOutline } from 'ionicons/icons';
 import { MoodPicker } from '../../components/entries/MoodPicker';
+import { RichTextEditor } from '../../components/entries/RichTextEditor';
 import { useEntriesStore } from '../../store/entriesStore';
 import type { MoodType, Entry } from '../../types';
 
@@ -39,6 +39,16 @@ function getTodayDate(): string {
  */
 function isValidDateFormat(dateStr: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(dateStr) && !isNaN(Date.parse(dateStr));
+}
+
+/**
+ * Get plain text length from HTML content
+ */
+function getPlainTextLength(html: string): number {
+  // Create a temporary div to parse HTML and extract text
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return (div.textContent || div.innerText || '').length;
 }
 
 export const EntryEditorPage: React.FC = () => {
@@ -255,48 +265,38 @@ export const EntryEditorPage: React.FC = () => {
               >
                 What's on your mind?
               </div>
-              <IonTextarea
-                data-testid="entry-content"
-                placeholder="Write your thoughts here..."
+              <RichTextEditor
                 value={content}
-                onIonInput={(e) => setContent(e.detail.value || '')}
-                autoGrow
-                rows={10}
+                onChange={setContent}
+                placeholder="Write your thoughts here..."
                 disabled={loading}
-                style={{
-                  '--background': 'var(--ion-background-color, #fff)',
-                  '--border-radius': '14px',
-                  '--padding-start': '16px',
-                  '--padding-end': '16px',
-                  '--padding-top': '14px',
-                  '--padding-bottom': '14px',
-                  border: '1px solid var(--ion-color-light)',
-                  borderRadius: '14px',
-                  fontSize: '16px',
-                  lineHeight: '1.6',
-                } as React.CSSProperties}
               />
             </div>
 
             {/* Character count */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <IonText color="medium">
-                <span style={{ fontSize: '12px' }}>{content.length.toLocaleString()} characters</span>
-              </IonText>
-              {content.length > 45000 && (
-                <IonText color="warning">
-                  <span style={{ fontSize: '12px' }}>
-                    {(50000 - content.length).toLocaleString()} remaining
-                  </span>
-                </IonText>
-              )}
-            </div>
+            {(() => {
+              const charCount = getPlainTextLength(content);
+              return (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <IonText color="medium">
+                    <span style={{ fontSize: '12px' }}>{charCount.toLocaleString()} characters</span>
+                  </IonText>
+                  {charCount > 45000 && (
+                    <IonText color="warning">
+                      <span style={{ fontSize: '12px' }}>
+                        {(50000 - charCount).toLocaleString()} remaining
+                      </span>
+                    </IonText>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 

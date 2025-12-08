@@ -236,15 +236,14 @@ export const EntryDetailPage: React.FC = () => {
           >
             {selectedEntry.content ? (
               <div
+                className="entry-content-rendered"
                 style={{
                   fontSize: '16px',
                   lineHeight: '1.8',
-                  whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
                 }}
-              >
-                {selectedEntry.content}
-              </div>
+                dangerouslySetInnerHTML={{ __html: selectedEntry.content }}
+              />
             ) : (
               <IonText color="medium">
                 <div style={{ fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>
