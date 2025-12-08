@@ -1,0 +1,202 @@
+/**
+ * ImageGallery Styles
+ */
+
+.image-gallery {
+  margin-bottom: 16px;
+}
+
+.gallery-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.gallery-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.gallery-title ion-icon {
+  font-size: 18px;
+  color: var(--ion-color-primary);
+}
+
+.image-count {
+  color: var(--ion-color-medium);
+  font-weight: 400;
+}
+
+/* Image Grid */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+@media (min-width: 600px) {
+  .gallery-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .gallery-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* Gallery Item */
+.gallery-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--ion-color-light);
+}
+
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gallery-item.error {
+  border: 2px solid var(--ion-color-danger);
+}
+
+/* Delete Button */
+.gallery-item .delete-button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.gallery-item .delete-button:hover {
+  background: rgba(0, 0, 0, 0.7);
+  transform: scale(1.1);
+}
+
+.gallery-item .delete-button ion-icon {
+  font-size: 20px;
+}
+
+.gallery-item .delete-button ion-spinner {
+  width: 16px;
+  height: 16px;
+}
+
+/* Upload Overlay */
+.upload-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-overlay ion-spinner {
+  color: white;
+  width: 32px;
+  height: 32px;
+}
+
+/* Error Overlay */
+.error-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(239, 68, 68, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.error-overlay button {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.error-overlay button ion-icon {
+  font-size: 24px;
+}
+
+/* Add Button in Grid */
+.gallery-add-button {
+  aspect-ratio: 1;
+  border: 2px dashed var(--ion-color-light-shade);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ion-color-medium);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.gallery-add-button:hover:not(:disabled) {
+  border-color: var(--ion-color-primary);
+  color: var(--ion-color-primary);
+  background: var(--ion-color-primary-tint);
+}
+
+.gallery-add-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gallery-add-button ion-icon {
+  font-size: 32px;
+}
+
+/* Empty State */
+.gallery-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 16px;
+  border: 2px dashed var(--ion-color-light-shade);
+  border-radius: 14px;
+  color: var(--ion-color-medium);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.gallery-empty:hover {
+  border-color: var(--ion-color-primary);
+  background: var(--ion-color-primary-tint);
+}
+
+.gallery-empty ion-icon {
+  font-size: 40px;
+}
+
+.gallery-empty span {
+  font-size: 14px;
+}
