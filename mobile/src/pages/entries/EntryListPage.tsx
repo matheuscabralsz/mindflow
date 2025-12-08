@@ -83,6 +83,25 @@ export const EntryListPage: React.FC = () => {
     return format(date, 'EEEE, MMM d');
   };
 
+  const stripMarkdown = (text: string) => {
+    return text
+      .replace(/#{1,6}\s?/g, '') // Remove headings
+      .replace(/\*\*(.+?)\*\*/g, '$1') // Remove bold
+      .replace(/\*(.+?)\*/g, '$1') // Remove italic
+      .replace(/__(.+?)__/g, '$1') // Remove bold (alt)
+      .replace(/_(.+?)_/g, '$1') // Remove italic (alt)
+      .replace(/~~(.+?)~~/g, '$1') // Remove strikethrough
+      .replace(/`(.+?)`/g, '$1') // Remove inline code
+      .replace(/^\s*[-*+]\s+/gm, '') // Remove list markers
+      .replace(/^\s*\d+\.\s+/gm, '') // Remove numbered list markers
+      .replace(/^\s*>/gm, '') // Remove blockquotes
+      .replace(/\[(.+?)\]\(.+?\)/g, '$1') // Remove links, keep text
+      .replace(/---/g, '') // Remove horizontal rules
+      .replace(/<[^>]+>/g, '') // Remove HTML tags
+      .replace(/\n+/g, ' ') // Replace newlines with spaces
+      .trim();
+  };
+
   return (
     <IonPage>
       <IonHeader>
@@ -262,7 +281,7 @@ export const EntryListPage: React.FC = () => {
                         overflow: 'hidden',
                       }}
                     >
-                      {entry.content || 'No content yet...'}
+                      {entry.content ? stripMarkdown(entry.content) : 'No content yet...'}
                     </p>
                   </div>
                 </button>
