@@ -24,8 +24,14 @@ import { format, isToday, isYesterday } from 'date-fns';
 import { calendarOutline, checkmarkOutline } from 'ionicons/icons';
 import { MoodPicker } from '../../components/entries/MoodPicker';
 import { RichTextEditor } from '../../components/entries/RichTextEditor';
+import { ImageGallery } from '../../components/entries/ImageGallery';
 import { useEntriesStore } from '../../store/entriesStore';
-import type { MoodType, Entry } from '../../types';
+import {
+  uploadEntryImage,
+  getEntryImages,
+  deleteEntryImage,
+} from '../../services/images.service';
+import type { MoodType, Entry, EntryImage } from '../../types';
 
 /**
  * Get today's date in YYYY-MM-DD format
@@ -63,6 +69,8 @@ export const EntryEditorPage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [images, setImages] = useState<EntryImage[]>([]);
+  const [imagesLoading, setImagesLoading] = useState(false);
 
   // Track which date we've fetched to prevent double fetches
   const fetchedDateRef = useRef<string | null>(null);
@@ -87,15 +95,23 @@ export const EntryEditorPage: React.FC = () => {
       setIsInitialized(false);
       setContent('');
       setMood(null);
+      setImages([]);
       existingEntryRef.current = null;
       fetchedDateRef.current = entryDate;
 
       // Only fetch, don't create
-      fetchEntryByDate(entryDate).then((entry) => {
+      fetchEntryByDate(entryDate).then(async (entry) => {
         existingEntryRef.current = entry;
         if (entry) {
           setContent(entry.content);
           setMood(entry.mood);
+          // Load images for existing entry
+          try {
+            const entryImages = await getEntryImages(entry.id);
+            setImages(entryImages);
+          } catch (err) {
+            console.error('Failed to load images:', err);
+          }
         }
         setIsInitialized(true);
       });
@@ -145,6 +161,69 @@ export const EntryEditorPage: React.FC = () => {
       console.error('Save error:', err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  /**
+   * Ensure entry exists before uploading images
+   * Creates entry if it doesn't exist yet
+   */
+  const ensureEntryExists = async (): Promise<Entry | null> => {
+    if (!entryDate || !user?.id) return null;
+
+    let entry = existingEntryRef.current;
+    if (entry?.id) return entry;
+
+    // Create new entry first
+    try {
+      entry = await createEntry({
+        content: content.trim() || '',
+        mood,
+        entry_date: entryDate,
+        user_id: user.id,
+      });
+      existingEntryRef.current = entry;
+      setSelectedEntry(entry);
+      return entry;
+    } catch (err) {
+      console.error('Failed to create entry for image upload:', err);
+      return null;
+    }
+  };
+
+  const handleImageUpload = async (files: File[]) => {
+    if (!user?.id) return;
+
+    setImagesLoading(true);
+    try {
+      const entry = await ensureEntryExists();
+      if (!entry) {
+        throw new Error('Could not create entry for images');
+      }
+
+      const currentOrder = images.length;
+      const uploadPromises = files.map((file, index) =>
+        uploadEntryImage(file, entry.id, user.id, currentOrder + index)
+      );
+
+      const results = await Promise.all(uploadPromises);
+      const newImages = results.map((r) => ({ ...r.image, url: r.url }));
+      setImages((prev) => [...prev, ...newImages]);
+    } catch (err) {
+      console.error('Upload error:', err);
+      throw err;
+    } finally {
+      setImagesLoading(false);
+    }
+  };
+
+  const handleImageDelete = async (imageId: string) => {
+    try {
+      await deleteEntryImage(imageId);
+      setImages((prev) => prev.filter((img) => img.id !== imageId));
+    } catch (err) {
+      console.error('Delete error:', err);
+      throw err;
     }
   };
 
@@ -282,6 +361,7 @@ export const EntryEditorPage: React.FC = () => {
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
+                    marginBottom: '24px',
                   }}
                 >
                   <IonText color="medium">
@@ -297,6 +377,15 @@ export const EntryEditorPage: React.FC = () => {
                 </div>
               );
             })()}
+
+            {/* Image Gallery */}
+            <ImageGallery
+              images={images}
+              onUpload={handleImageUpload}
+              onDelete={handleImageDelete}
+              disabled={loading || saving}
+              loading={imagesLoading}
+            />
           </div>
         )}
 

@@ -2,6 +2,19 @@ export type MoodType = 'happy' | 'sad' | 'anxious' | 'calm' | 'stressed' | 'neut
 
 export type SentimentLabel = 'positive' | 'neutral' | 'negative';
 
+export interface EntryImage {
+  id: string;
+  entry_id: string;
+  user_id: string;
+  storage_path: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  display_order: number;
+  created_at: string;
+  url?: string; // Signed URL for display
+}
+
 export interface Entry {
   id: string;
   user_id: string;
@@ -12,6 +25,7 @@ export interface Entry {
   sentiment_label: SentimentLabel | null;
   created_at: string;
   updated_at: string;
+  images?: EntryImage[];
 }
 
 export interface CreateEntryData {

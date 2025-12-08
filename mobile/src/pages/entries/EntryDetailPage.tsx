@@ -4,7 +4,7 @@
  * Route: /entries/view/:date (YYYY-MM-DD)
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useHistory, useParams } from 'react-router-dom';
 import {
   IonContent,
@@ -20,10 +20,12 @@ import {
   IonAlert,
   IonToast,
 } from '@ionic/react';
-import { createOutline, trashOutline, calendarOutline, documentTextOutline } from 'ionicons/icons';
+import { createOutline, trashOutline, calendarOutline, documentTextOutline, imageOutline } from 'ionicons/icons';
 import { format, isToday, isYesterday } from 'date-fns';
 import { useEntriesStore } from '../../store/entriesStore';
 import { getMoodEmoji, getMoodLabel, getMoodColor } from '../../utils/moods';
+import { getEntryImages } from '../../services/images.service';
+import type { EntryImage } from '../../types';
 
 export const EntryDetailPage: React.FC = () => {
   const history = useHistory();
@@ -31,14 +33,31 @@ export const EntryDetailPage: React.FC = () => {
 
   const { selectedEntry, loading, error, fetchEntryByDate, deleteEntryByDate } = useEntriesStore();
 
-  const [showDeleteAlert, setShowDeleteAlert] = React.useState(false);
-  const [deleteSuccess, setDeleteSuccess] = React.useState(false);
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
+  const [images, setImages] = useState<EntryImage[]>([]);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (date) {
       fetchEntryByDate(date);
     }
   }, [date, fetchEntryByDate]);
+
+  // Load images when entry is available
+  useEffect(() => {
+    const loadImages = async () => {
+      if (selectedEntry?.id) {
+        try {
+          const entryImages = await getEntryImages(selectedEntry.id);
+          setImages(entryImages);
+        } catch (err) {
+          console.error('Failed to load images:', err);
+        }
+      }
+    };
+    loadImages();
+  }, [selectedEntry?.id]);
 
   const handleEdit = () => {
     history.push(`/entries/edit/${date}`);
@@ -253,6 +272,56 @@ export const EntryDetailPage: React.FC = () => {
             )}
           </div>
 
+          {/* Images Section */}
+          {images.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '12px',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                }}
+              >
+                <IonIcon icon={imageOutline} style={{ color: 'var(--ion-color-primary)' }} />
+                <span>Photos ({images.length})</span>
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: '8px',
+                }}
+              >
+                {images.map((img) => (
+                  <div
+                    key={img.id}
+                    style={{
+                      aspectRatio: '1',
+                      borderRadius: '12px',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => setSelectedImage(img.url || null)}
+                  >
+                    <img
+                      src={img.url}
+                      alt={img.file_name}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                      loading="lazy"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Metadata Footer */}
           {selectedEntry.updated_at !== selectedEntry.created_at && (
             <IonText color="medium">
@@ -262,6 +331,34 @@ export const EntryDetailPage: React.FC = () => {
             </IonText>
           )}
         </div>
+
+        {/* Image Lightbox */}
+        {selectedImage && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.9)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+            }}
+            onClick={() => setSelectedImage(null)}
+          >
+            <img
+              src={selectedImage}
+              alt="Full size"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'contain',
+                borderRadius: '8px',
+              }}
+            />
+          </div>
+        )}
 
         {/* Delete Confirmation Alert */}
         <IonAlert
