@@ -19,7 +19,6 @@ import {
   IonCard,
   IonCardHeader,
   IonCardTitle,
-  IonCardSubtitle,
   IonCardContent,
   IonSpinner,
   IonText,
@@ -44,12 +43,12 @@ export const EntryListPage: React.FC = () => {
     event.detail.complete();
   };
 
-  const handleEntryClick = (id: string) => {
-    history.push(`/entries/view/${id}`);
+  const handleEntryClick = (entryDate: string) => {
+    history.push(`/entries/edit/${entryDate}`);
   };
 
   const handleNewEntry = () => {
-    history.push('/entries/new');
+    history.push('/entries/edit');
   };
 
   const handleProfileClick = () => {
@@ -133,7 +132,7 @@ export const EntryListPage: React.FC = () => {
         )}
 
         {entries.map((entry) => (
-          <IonCard key={entry.id} button onClick={() => handleEntryClick(entry.id)}>
+          <IonCard key={entry.id} button onClick={() => handleEntryClick(entry.entry_date)}>
             <IonCardHeader>
               <div
                 style={{
@@ -142,12 +141,11 @@ export const EntryListPage: React.FC = () => {
                   alignItems: 'center',
                 }}
               >
-                <IonCardTitle>{format(new Date(entry.created_at), 'PPP')}</IonCardTitle>
+                <IonCardTitle>{format(new Date(entry.entry_date + 'T00:00:00'), 'PPP')}</IonCardTitle>
                 {entry.mood && (
                   <span style={{ fontSize: '24px' }}>{getMoodEmoji(entry.mood)}</span>
                 )}
               </div>
-              <IonCardSubtitle>{format(new Date(entry.created_at), 'p')}</IonCardSubtitle>
             </IonCardHeader>
             <IonCardContent>
               <IonText>

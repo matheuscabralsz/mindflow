@@ -4,6 +4,7 @@
 CREATE TABLE IF NOT EXISTS entries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    entry_date DATE NOT NULL,
     content TEXT NOT NULL,
     mood mood_type,
     sentiment_score DECIMAL(3,2),
@@ -13,11 +14,13 @@ CREATE TABLE IF NOT EXISTS entries (
 
     CONSTRAINT entries_content_length CHECK (char_length(content) <= 50000),
     CONSTRAINT entries_sentiment_score_range CHECK (sentiment_score IS NULL OR (sentiment_score >= -1 AND sentiment_score <= 1)),
-    CONSTRAINT entries_sentiment_label_valid CHECK (sentiment_label IS NULL OR sentiment_label IN ('positive', 'neutral', 'negative'))
+    CONSTRAINT entries_sentiment_label_valid CHECK (sentiment_label IS NULL OR sentiment_label IN ('positive', 'neutral', 'negative')),
+    CONSTRAINT entries_unique_user_date UNIQUE (user_id, entry_date)
 );
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_entries_user_id ON entries(user_id);
+CREATE INDEX IF NOT EXISTS idx_entries_entry_date ON entries(entry_date DESC);
 CREATE INDEX IF NOT EXISTS idx_entries_created_at ON entries(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_entries_mood ON entries(mood);
 CREATE INDEX IF NOT EXISTS idx_entries_search ON entries USING GIN(to_tsvector('english', content));

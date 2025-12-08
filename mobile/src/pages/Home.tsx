@@ -49,7 +49,7 @@ const Home: React.FC = () => {
                 <IonButton
                   expand="block"
                   color="primary"
-                  onClick={() => history.push('/entries/new')}
+                  onClick={() => history.push('/entries/edit')}
                   style={{ flex: 1 }}
                 >
                   <IonIcon slot="start" icon={addCircleOutline} />

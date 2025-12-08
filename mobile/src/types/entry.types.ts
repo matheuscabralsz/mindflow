@@ -5,6 +5,7 @@ export type SentimentLabel = 'positive' | 'neutral' | 'negative';
 export interface Entry {
   id: string;
   user_id: string;
+  entry_date: string; // YYYY-MM-DD format
   content: string;
   mood: MoodType | null;
   sentiment_score: number | null;
@@ -16,6 +17,7 @@ export interface Entry {
 export interface CreateEntryData {
   content: string;
   user_id: string;
+  entry_date: string; // YYYY-MM-DD format
   mood?: MoodType | null;
 }
 

@@ -1,6 +1,7 @@
 /**
  * EntryDetail Page
  * View full entry with edit and delete options
+ * Route: /entries/view/:date (YYYY-MM-DD)
  */
 
 import React, { useEffect } from 'react';
@@ -29,26 +30,26 @@ import { getMoodEmoji, getMoodLabel } from '../../utils/moods';
 
 export const EntryDetailPage: React.FC = () => {
   const history = useHistory();
-  const { id } = useParams<{ id: string }>();
+  const { date } = useParams<{ date: string }>();
 
-  const { selectedEntry, loading, error, fetchEntry, deleteEntry } = useEntriesStore();
+  const { selectedEntry, loading, error, fetchEntryByDate, deleteEntryByDate } = useEntriesStore();
 
   const [showDeleteAlert, setShowDeleteAlert] = React.useState(false);
   const [deleteSuccess, setDeleteSuccess] = React.useState(false);
 
   useEffect(() => {
-    if (id) {
-      fetchEntry(id);
+    if (date) {
+      fetchEntryByDate(date);
     }
-  }, [id, fetchEntry]);
+  }, [date, fetchEntryByDate]);
 
   const handleEdit = () => {
-    history.push(`/entries/edit/${id}`);
+    history.push(`/entries/edit/${date}`);
   };
 
   const handleDelete = async () => {
     try {
-      await deleteEntry(id);
+      await deleteEntryByDate(date);
       setDeleteSuccess(true);
       setTimeout(() => {
         history.replace('/entries');
@@ -57,6 +58,11 @@ export const EntryDetailPage: React.FC = () => {
       console.error('Delete error:', err);
     }
   };
+
+  // Format date for display
+  const displayDate = date
+    ? format(new Date(date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')
+    : '';
 
   if (loading && !selectedEntry) {
     return (
@@ -99,7 +105,7 @@ export const EntryDetailPage: React.FC = () => {
         <IonContent className="ion-padding">
           <IonText color="danger">
             <h2>Entry not found</h2>
-            <p>{error || 'The entry you are looking for does not exist.'}</p>
+            <p>{error || 'No entry exists for this date.'}</p>
           </IonText>
         </IonContent>
       </IonPage>
@@ -141,12 +147,7 @@ export const EntryDetailPage: React.FC = () => {
             >
               <div>
                 <IonText>
-                  <h2 style={{ margin: 0 }}>
-                    {format(new Date(selectedEntry.created_at), 'PPP')}
-                  </h2>
-                  <p style={{ margin: '4px 0 0 0', color: 'var(--ion-color-medium)' }}>
-                    {format(new Date(selectedEntry.created_at), 'p')}
-                  </p>
+                  <h2 style={{ margin: 0 }}>{displayDate}</h2>
                 </IonText>
               </div>
               {selectedEntry.mood && (

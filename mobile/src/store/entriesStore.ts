@@ -17,9 +17,12 @@ interface EntriesState {
   // Actions
   fetchEntries: () => Promise<void>;
   fetchEntry: (id: string) => Promise<void>;
+  fetchEntryByDate: (entryDate: string) => Promise<Entry | null>;
+  fetchOrCreateEntryByDate: (entryDate: string, userId: string) => Promise<Entry>;
   createEntry: (data: CreateEntryData) => Promise<Entry>;
   updateEntry: (id: string, data: UpdateEntryData) => Promise<Entry>;
   deleteEntry: (id: string) => Promise<void>;
+  deleteEntryByDate: (entryDate: string) => Promise<void>;
   setSelectedEntry: (entry: Entry | null) => void;
   clearError: () => void;
   clearEntries: () => void;
@@ -51,6 +54,34 @@ export const useEntriesStore = create<EntriesState>((set) => ({
     try {
       const entry = await entriesService.getEntryById(id);
       set({ selectedEntry: entry, loading: false });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch entry';
+      set({ error: errorMessage, loading: false });
+      throw error;
+    }
+  },
+
+  // Fetch entry by date (returns null if not found)
+  fetchEntryByDate: async (entryDate: string) => {
+    set({ loading: true, error: null });
+    try {
+      const entry = await entriesService.getEntryByDate(entryDate);
+      set({ selectedEntry: entry, loading: false });
+      return entry;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch entry';
+      set({ error: errorMessage, loading: false });
+      throw error;
+    }
+  },
+
+  // Fetch or create entry by date
+  fetchOrCreateEntryByDate: async (entryDate: string, userId: string) => {
+    set({ loading: true, error: null });
+    try {
+      const entry = await entriesService.getOrCreateEntry(entryDate, userId);
+      set({ selectedEntry: entry, loading: false });
+      return entry;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch entry';
       set({ error: errorMessage, loading: false });
@@ -111,6 +142,25 @@ export const useEntriesStore = create<EntriesState>((set) => ({
       set((state) => ({
         entries: state.entries.filter((entry) => entry.id !== id),
         selectedEntry: state.selectedEntry?.id === id ? null : state.selectedEntry,
+        loading: false,
+      }));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete entry';
+      set({ error: errorMessage, loading: false });
+      throw error;
+    }
+  },
+
+  // Delete entry by date
+  deleteEntryByDate: async (entryDate: string) => {
+    set({ loading: true, error: null });
+    try {
+      await entriesService.deleteEntryByDate(entryDate);
+
+      // Remove from entries list
+      set((state) => ({
+        entries: state.entries.filter((entry) => entry.entry_date !== entryDate),
+        selectedEntry: state.selectedEntry?.entry_date === entryDate ? null : state.selectedEntry,
         loading: false,
       }));
     } catch (error) {

@@ -14,13 +14,13 @@ import type { Entry, CreateEntryData, UpdateEntryData, EntryFilters, EntriesResp
 
 /**
  * Fetch all entries for the authenticated user
- * Sorted by created_at DESC (newest first)
+ * Sorted by entry_date DESC (newest first)
  */
 export async function getAllEntries(): Promise<Entry[]> {
   const { data, error } = await supabase
     .from('entries')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('entry_date', { ascending: false });
 
   if (error) {
     console.error('Error fetching entries:', error);
@@ -35,7 +35,7 @@ export async function getAllEntries(): Promise<Entry[]> {
  * @param id - Entry UUID
  */
 export async function getEntryById(id: string): Promise<Entry> {
-    console.log('Fetching entry with ID:', id);
+  console.log('Fetching entry with ID:', id);
   const { data, error } = await supabase
     .from('entries')
     .select('*')
@@ -49,6 +49,59 @@ export async function getEntryById(id: string): Promise<Entry> {
 
   if (!data) {
     throw new Error('Entry not found');
+  }
+
+  return data;
+}
+
+/**
+ * Fetch an entry by date for the authenticated user
+ * @param entryDate - Entry date in YYYY-MM-DD format
+ * @returns Entry or null if not found
+ */
+export async function getEntryByDate(entryDate: string): Promise<Entry | null> {
+  const { data, error } = await supabase
+    .from('entries')
+    .select('*')
+    .eq('entry_date', entryDate)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching entry by date:', error);
+    throw new Error('Failed to fetch entry');
+  }
+
+  return data;
+}
+
+/**
+ * Get or create an entry for a specific date
+ * If entry exists, returns it. If not, creates a new one with empty content.
+ * @param entryDate - Entry date in YYYY-MM-DD format
+ * @param userId - User ID
+ * @returns Entry (existing or newly created)
+ */
+export async function getOrCreateEntry(entryDate: string, userId: string): Promise<Entry> {
+  // First try to get existing entry
+  const existing = await getEntryByDate(entryDate);
+  if (existing) {
+    return existing;
+  }
+
+  // Create new entry with empty content
+  const { data, error } = await supabase
+    .from('entries')
+    .insert([{ entry_date: entryDate, user_id: userId, content: '' }])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating entry:', error);
+    throw new Error('Failed to create entry');
+  }
+
+  if (!data) {
+    throw new Error('No data returned after creating entry');
   }
 
   return data;
@@ -122,6 +175,22 @@ export async function deleteEntry(id: string): Promise<void> {
 }
 
 /**
+ * Delete an entry by date
+ * @param entryDate - Entry date in YYYY-MM-DD format
+ */
+export async function deleteEntryByDate(entryDate: string): Promise<void> {
+  const { error } = await supabase
+    .from('entries')
+    .delete()
+    .eq('entry_date', entryDate);
+
+  if (error) {
+    console.error('Error deleting entry:', error);
+    throw new Error('Failed to delete entry');
+  }
+}
+
+/**
  * Search entries using full-text search with optional filters
  * @param searchQuery - Search query string
  * @param page - Page number (0-indexed)
@@ -139,7 +208,7 @@ export async function searchEntries(
     let query = supabase
       .from('entries')
       .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
+      .order('entry_date', { ascending: false })
       .range(page * limit, (page + 1) * limit - 1);
 
     // Apply filters
@@ -148,11 +217,11 @@ export async function searchEntries(
     }
 
     if (filters?.startDate) {
-      query = query.gte('created_at', filters.startDate.toISOString());
+      query = query.gte('entry_date', filters.startDate.toISOString().split('T')[0]);
     }
 
     if (filters?.endDate) {
-      query = query.lte('created_at', filters.endDate.toISOString());
+      query = query.lte('entry_date', filters.endDate.toISOString().split('T')[0]);
     }
 
     const { data, error, count } = await query;
@@ -184,7 +253,7 @@ export async function searchEntries(
       type: 'websearch',
       config: 'english',
     })
-    .order('created_at', { ascending: false })
+    .order('entry_date', { ascending: false })
     .range(page * limit, (page + 1) * limit - 1);
 
   // Apply additional filters
@@ -193,11 +262,11 @@ export async function searchEntries(
   }
 
   if (filters?.startDate) {
-    query = query.gte('created_at', filters.startDate.toISOString());
+    query = query.gte('entry_date', filters.startDate.toISOString().split('T')[0]);
   }
 
   if (filters?.endDate) {
-    query = query.lte('created_at', filters.endDate.toISOString());
+    query = query.lte('entry_date', filters.endDate.toISOString().split('T')[0]);
   }
 
   const { data, error, count } = await query;
@@ -223,7 +292,7 @@ export async function getEntriesByMood(mood: string): Promise<Entry[]> {
     .from('entries')
     .select('*')
     .eq('mood', mood)
-    .order('created_at', { ascending: false });
+    .order('entry_date', { ascending: false });
 
   if (error) {
     console.error('Error filtering entries by mood:', error);

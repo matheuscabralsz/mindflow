@@ -1,11 +1,12 @@
 /**
  * EntryEditor Page
- * Create new entries or edit existing ones
+ * Create or edit entries by date
+ * Route: /entries/edit/:date (YYYY-MM-DD) or /entries/edit (defaults to today)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useHistory, useParams } from 'react-router-dom';
-import {useAuthStore} from '../../store/authStore';
+import { useAuthStore } from '../../store/authStore';
 import {
   IonContent,
   IonPage,
@@ -19,60 +20,80 @@ import {
   IonToast,
   IonText,
 } from '@ionic/react';
+import { format } from 'date-fns';
 import { MoodPicker } from '../../components/entries/MoodPicker';
 import { useEntriesStore } from '../../store/entriesStore';
 import type { MoodType } from '../../types';
 
+/**
+ * Get today's date in YYYY-MM-DD format
+ */
+function getTodayDate(): string {
+  return format(new Date(), 'yyyy-MM-dd');
+}
+
+/**
+ * Validate date string is in YYYY-MM-DD format
+ */
+function isValidDateFormat(dateStr: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateStr) && !isNaN(Date.parse(dateStr));
+}
+
 export const EntryEditorPage: React.FC = () => {
   const history = useHistory();
-  const { id } = useParams<{ id?: string }>();
-  const isEditMode = Boolean(id && id !== 'new');
-
-  const { selectedEntry, loading, error, fetchEntry, createEntry, updateEntry } =
+  const { date } = useParams<{ date?: string }>();
+  const { user } = useAuthStore();
+  const { selectedEntry, loading, error, fetchOrCreateEntryByDate, updateEntry } =
     useEntriesStore();
-    const { user } = useAuthStore();
 
-    const [content, setContent] = useState('');
+  const [content, setContent] = useState('');
   const [mood, setMood] = useState<MoodType | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize content only once when editing
-  useEffect(() => {
-    if (isEditMode && id && !isInitialized) {
-      if (selectedEntry?.id !== id) {
-        fetchEntry(id);
-      } else if (selectedEntry) {
-        setContent(selectedEntry.content);
-        setMood(selectedEntry.mood);
-        setIsInitialized(true);
-      }
-    }
-  }, [id, isEditMode, selectedEntry, fetchEntry, isInitialized]);
+  // Track which date we've fetched to prevent double fetches
+  const fetchedDateRef = useRef<string | null>(null);
 
-  // Update content when selected entry loads (only if not already initialized)
+  // Determine the effective entry date
+  const entryDate = date && isValidDateFormat(date) ? date : null;
+
+  // Redirect to today's date if no valid date in URL
   useEffect(() => {
-    if (isEditMode && selectedEntry && selectedEntry.id === id && !isInitialized) {
+    if (!entryDate) {
+      const today = getTodayDate();
+      history.replace(`/entries/edit/${today}`);
+    }
+  }, [entryDate, history]);
+
+  // Fetch or create entry when date changes
+  useEffect(() => {
+    if (entryDate && user?.id && fetchedDateRef.current !== entryDate) {
+      // Reset state for new date
+      setIsInitialized(false);
+      setContent('');
+      setMood(null);
+      fetchedDateRef.current = entryDate;
+      fetchOrCreateEntryByDate(entryDate, user.id);
+    }
+  }, [entryDate, user?.id, fetchOrCreateEntryByDate]);
+
+  // Update content when entry is loaded
+  useEffect(() => {
+    if (selectedEntry && selectedEntry.entry_date === entryDate && !isInitialized) {
       setContent(selectedEntry.content);
       setMood(selectedEntry.mood);
       setIsInitialized(true);
     }
-  }, [selectedEntry, id, isEditMode, isInitialized]);
+  }, [selectedEntry, entryDate, isInitialized]);
 
   const handleSave = async () => {
-    if (!content.trim()) {
+    if (!selectedEntry?.id) {
       return;
     }
 
     try {
-      if (isEditMode && id) {
-        await updateEntry(id, { content: content.trim(), mood });
-        setSuccessMessage('Entry updated successfully!');
-      } else {
-          if (!user?.id) return;
-          await createEntry({content: content.trim(), mood, user_id: user.id});
-          setSuccessMessage('Entry created successfully!');
-      }
+      await updateEntry(selectedEntry.id, { content: content.trim(), mood });
+      setSuccessMessage('Entry saved successfully!');
 
       setTimeout(() => {
         history.push('/entries');
@@ -86,6 +107,11 @@ export const EntryEditorPage: React.FC = () => {
     history.goBack();
   };
 
+  // Format date for display
+  const displayDate = entryDate
+    ? format(new Date(entryDate + 'T00:00:00'), 'EEEE, MMMM d, yyyy')
+    : '';
+
   return (
     <IonPage>
       <IonHeader>
@@ -93,7 +119,7 @@ export const EntryEditorPage: React.FC = () => {
           <IonButtons slot="start">
             <IonBackButton defaultHref="/entries" />
           </IonButtons>
-          <IonTitle>{isEditMode ? 'Edit Entry' : 'New Entry'}</IonTitle>
+          <IonTitle>{displayDate}</IonTitle>
           <IonButtons slot="end">
             <IonButton onClick={handleCancel} color="medium">
               Cancel
@@ -106,7 +132,7 @@ export const EntryEditorPage: React.FC = () => {
       </IonHeader>
 
       <IonContent className="ion-padding">
-        {loading && isEditMode && !isInitialized && (
+        {loading && !isInitialized && (
           <div
             style={{
               display: 'flex',
@@ -119,7 +145,7 @@ export const EntryEditorPage: React.FC = () => {
           </div>
         )}
 
-        {(!loading || isInitialized || !isEditMode) && (
+        {isInitialized && (
           <>
             <div style={{ marginBottom: '20px' }}>
               <MoodPicker selectedMood={mood} onMoodSelect={setMood} disabled={loading} />

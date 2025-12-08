@@ -88,17 +88,17 @@ const App: React.FC = () => {
               <EntryListPage />
             </ProtectedRoute>
           </Route>
-          <Route exact path="/entries/new">
+          <Route exact path="/entries/edit">
             <ProtectedRoute>
               <EntryEditorPage />
             </ProtectedRoute>
           </Route>
-          <Route exact path="/entries/edit/:id">
+          <Route exact path="/entries/edit/:date">
             <ProtectedRoute>
               <EntryEditorPage />
             </ProtectedRoute>
           </Route>
-          <Route exact path="/entries/view/:id">
+          <Route exact path="/entries/view/:date">
             <ProtectedRoute>
               <EntryDetailPage />
             </ProtectedRoute>

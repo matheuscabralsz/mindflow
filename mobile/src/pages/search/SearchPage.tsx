@@ -76,8 +76,8 @@ const SearchPage: React.FC = () => {
     setEndDate(end);
   };
 
-  const handleEntryClick = (id: string) => {
-    history.push(`/entries/view/${id}`);
+  const handleEntryClick = (entryDate: string) => {
+    history.push(`/entries/edit/${entryDate}`);
   };
 
   return (
@@ -142,12 +142,12 @@ const SearchPage: React.FC = () => {
               <IonCard
                 key={entry.id}
                 button
-                onClick={() => handleEntryClick(entry.id)}
+                onClick={() => handleEntryClick(entry.entry_date)}
                 className="search-result-card"
               >
                 <IonCardHeader>
                   <IonCardTitle className="search-result-date">
-                    {format(new Date(entry.created_at), 'EEEE, MMMM d, yyyy')}
+                    {format(new Date(entry.entry_date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')}
                   </IonCardTitle>
                 </IonCardHeader>
                 <IonCardContent>
