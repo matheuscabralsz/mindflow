@@ -9,6 +9,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
+import { Markdown } from 'tiptap-markdown';
 import { IonIcon } from '@ionic/react';
 import {
   removeOutline,
@@ -121,19 +122,24 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       Placeholder.configure({
         placeholder,
       }),
+      Markdown.configure({
+        html: true, // Allow HTML input for backward compatibility with existing entries
+        transformPastedText: true,
+        transformCopiedText: true,
+      }),
     ],
     content: value,
     editable: !disabled,
     onUpdate: ({ editor }) => {
-      // Get HTML content - we'll store as HTML which supports rich formatting
-      const html = editor.getHTML();
-      onChange(html);
+      // Get markdown content
+      const markdown = editor.storage.markdown.getMarkdown();
+      onChange(markdown);
     },
   });
 
   // Update content when value prop changes externally
   React.useEffect(() => {
-    if (editor && value !== editor.getHTML()) {
+    if (editor && value !== editor.storage.markdown.getMarkdown()) {
       editor.commands.setContent(value);
     }
   }, [value, editor]);
