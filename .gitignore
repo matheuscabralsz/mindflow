@@ -28,6 +28,7 @@ build/
 # Temporary files
 *.tmp
 .cache/
+temp/
 
 # Supabase
 supabase/.temp/
