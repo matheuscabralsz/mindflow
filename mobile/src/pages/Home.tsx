@@ -19,6 +19,7 @@ import {
   moonOutline,
   cloudyOutline,
   calendarOutline,
+  chevronForwardOutline,
 } from 'ionicons/icons';
 import { format } from 'date-fns';
 import { useAuthStore } from '../store/authStore';
@@ -206,7 +207,7 @@ const Home: React.FC = () => {
                 <div style={{ fontSize: '13px', opacity: 0.9 }}>View patterns & summaries</div>
               </div>
             </div>
-            <IonIcon icon="chevron-forward-outline" style={{ fontSize: '20px' }} />
+            <IonIcon icon={chevronForwardOutline} style={{ fontSize: '20px' }} />
           </button>
         </div>
       </IonContent>

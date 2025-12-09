@@ -3,7 +3,7 @@
  * Displays detailed view of a monthly AI summary
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   IonContent,
@@ -32,6 +32,7 @@ export const MonthlySummaryPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fetchedRef = useRef<string | null>(null);
 
   const formatMonth = () => {
     if (!month) return 'Monthly Summary';
@@ -46,6 +47,10 @@ export const MonthlySummaryPage: React.FC = () => {
   useEffect(() => {
     const loadSummary = async () => {
       if (!month) return;
+
+      // Prevent duplicate fetches (e.g., from StrictMode)
+      if (fetchedRef.current === month) return;
+      fetchedRef.current = month;
 
       setLoading(true);
       setError(null);

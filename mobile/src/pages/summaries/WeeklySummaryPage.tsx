@@ -3,7 +3,7 @@
  * Displays detailed view of a weekly AI summary
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   IonContent,
@@ -32,6 +32,7 @@ export const WeeklySummaryPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fetchedRef = useRef<string | null>(null);
 
   const formatDateRange = () => {
     if (!startDate || !endDate) return 'Weekly Summary';
@@ -47,6 +48,11 @@ export const WeeklySummaryPage: React.FC = () => {
   useEffect(() => {
     const loadSummary = async () => {
       if (!startDate || !endDate) return;
+
+      // Prevent duplicate fetches (e.g., from StrictMode)
+      const fetchKey = `${startDate}-${endDate}`;
+      if (fetchedRef.current === fetchKey) return;
+      fetchedRef.current = fetchKey;
 
       setLoading(true);
       setError(null);
