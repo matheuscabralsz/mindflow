@@ -8,7 +8,9 @@ CREATE TABLE IF NOT EXISTS ai_insights (
     entry_id UUID REFERENCES entries(id) ON DELETE CASCADE,
     content JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    expires_at TIMESTAMP WITH TIME ZONE
+    expires_at TIMESTAMP WITH TIME ZONE,
+    period_start DATE,
+    period_end DATE
 );
 
 -- Indexes for performance
@@ -16,6 +18,10 @@ CREATE INDEX IF NOT EXISTS idx_ai_insights_user_id ON ai_insights(user_id);
 CREATE INDEX IF NOT EXISTS idx_ai_insights_entry_id ON ai_insights(entry_id);
 CREATE INDEX IF NOT EXISTS idx_ai_insights_type ON ai_insights(insight_type);
 CREATE INDEX IF NOT EXISTS idx_ai_insights_expires_at ON ai_insights(expires_at);
+
+-- Create composite index for efficient period lookups
+CREATE INDEX IF NOT EXISTS idx_ai_insights_period
+ON ai_insights(user_id, insight_type, period_start);
 
 -- Row Level Security
 ALTER TABLE ai_insights ENABLE ROW LEVEL SECURITY;

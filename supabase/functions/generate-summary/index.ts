@@ -37,6 +37,21 @@ Return ONLY a JSON object (no markdown formatting):
 Entries:
 `;
 
+const MONTHLY_SUMMARY_PROMPT = `Analyze these journal entries from the past month and provide comprehensive insights.
+
+Return ONLY a JSON object (no markdown formatting):
+{
+  "summary": "<4-5 sentence overview of the month highlighting key events and emotional journey>",
+  "keyThemes": ["<theme1>", "<theme2>", "<theme3>", "<theme4>"],
+  "overallMood": "<overall emotional arc - e.g., 'Started anxious, grew more confident'>",
+  "insights": ["<major behavioral pattern>", "<growth observation>", "<actionable recommendation>"],
+  "highlights": ["<positive moment worth remembering>", "<personal achievement>"],
+  "challenges": ["<difficulty faced>", "<area that needs attention>"]
+}
+
+Entries:
+`;
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -96,7 +111,16 @@ serve(async (req) => {
     let insightType: string;
     let prompt: string;
 
-    if (type === 'weekly') {
+    if (type === 'monthly') {
+      // First day of the target month
+      startDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+      startDate.setHours(0, 0, 0, 0);
+      // Last day of the target month
+      endDate = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0);
+      endDate.setHours(23, 59, 59, 999);
+      insightType = 'monthly_summary';
+      prompt = MONTHLY_SUMMARY_PROMPT;
+    } else if (type === 'weekly') {
       startDate = new Date(targetDate);
       startDate.setDate(startDate.getDate() - 7);
       startDate.setHours(0, 0, 0, 0);
@@ -147,10 +171,10 @@ serve(async (req) => {
     // Fetch entries for date range
     const { data: entries, error: entriesError } = await supabase
       .from('entries')
-      .select('content, created_at, mood, sentiment_score')
-      .gte('created_at', startDate.toISOString())
-      .lte('created_at', endDate.toISOString())
-      .order('created_at', { ascending: true });
+      .select('content, entry_date, mood, sentiment_score')
+      .gte('entry_date', startDate.toISOString().split('T')[0])
+      .lte('entry_date', endDate.toISOString().split('T')[0])
+      .order('entry_date', { ascending: true });
 
     if (entriesError) {
       return new Response(
@@ -169,11 +193,11 @@ serve(async (req) => {
     // Format entries for prompt
     let formattedEntries: string;
 
-    if (type === 'weekly') {
-      // Group by day for weekly
+    if (type === 'weekly' || type === 'monthly') {
+      // Group by day for weekly/monthly
       const entriesByDay: Record<string, typeof entries> = {};
       entries.forEach((entry) => {
-        const day = new Date(entry.created_at).toLocaleDateString('en-US', {
+        const day = new Date(entry.entry_date + 'T00:00:00').toLocaleDateString('en-US', {
           weekday: 'long',
           month: 'short',
           day: 'numeric',
@@ -196,12 +220,8 @@ serve(async (req) => {
       // Simple list for daily
       formattedEntries = entries
         .map((entry, index) => {
-          const time = new Date(entry.created_at).toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-          });
           const mood = entry.mood ? ` [Mood: ${entry.mood}]` : '';
-          return `Entry ${index + 1} (${time})${mood}:\n${entry.content}`;
+          return `Entry ${index + 1}${mood}:\n${entry.content}`;
         })
         .join('\n\n---\n\n');
     }
@@ -234,7 +254,7 @@ serve(async (req) => {
           },
         ],
         temperature: 0.5,
-        max_tokens: type === 'weekly' ? 600 : 500,
+        max_tokens: type === 'monthly' ? 800 : type === 'weekly' ? 600 : 500,
       }),
     });
 
