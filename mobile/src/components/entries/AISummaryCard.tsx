@@ -4,29 +4,50 @@
  */
 
 import React from 'react';
+import { useHistory } from 'react-router-dom';
 import { IonIcon } from '@ionic/react';
-import { sparkles } from 'ionicons/icons';
+import { sparkles, chevronForward } from 'ionicons/icons';
 
 interface AISummaryCardProps {
   type: 'week' | 'month';
   period: string;
   summary?: string;
-  onClick?: () => void;
+  /** For weekly: start date of the week (Date object) */
+  weekStart?: Date;
+  /** For weekly: end date of the week (Date object) */
+  weekEnd?: Date;
+  /** For monthly: the month in YYYY-MM format */
+  monthKey?: string;
 }
 
 export const AISummaryCard: React.FC<AISummaryCardProps> = ({
   type,
   period: _period,
   summary,
-  onClick,
+  weekStart,
+  weekEnd,
+  monthKey,
 }) => {
+  const history = useHistory();
+
+  const handleClick = () => {
+    if (type === 'week' && weekStart && weekEnd) {
+      const startStr = weekStart.toISOString().split('T')[0];
+      const endStr = weekEnd.toISOString().split('T')[0];
+      history.push(`/summary/week/${startStr}/${endStr}`);
+    } else if (type === 'month' && monthKey) {
+      history.push(`/summary/monthly/${monthKey}`);
+    }
+  };
   const placeholderText = type === 'month'
     ? 'Monthly insights will appear here once generated...'
     : 'Weekly insights will appear here once generated...';
 
+  const isClickable = (type === 'week' && weekStart && weekEnd) || (type === 'month' && monthKey);
+
   return (
     <button
-      onClick={onClick}
+      onClick={handleClick}
       style={{
         width: '100%',
         display: 'flex',
@@ -36,7 +57,7 @@ export const AISummaryCard: React.FC<AISummaryCardProps> = ({
         background: 'linear-gradient(135deg, rgba(var(--ion-color-primary-rgb), 0.08) 0%, rgba(var(--ion-color-secondary-rgb), 0.08) 100%)',
         border: '1.5px solid var(--ion-color-primary)',
         borderRadius: '14px',
-        cursor: onClick ? 'pointer' : 'default',
+        cursor: isClickable ? 'pointer' : 'default',
         textAlign: 'left',
         marginBottom: '12px',
         transition: 'transform 0.1s ease, box-shadow 0.1s ease',
@@ -107,6 +128,22 @@ export const AISummaryCard: React.FC<AISummaryCardProps> = ({
           {summary || placeholderText}
         </p>
       </div>
+
+      {/* Chevron indicator */}
+      {isClickable && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <IonIcon
+            icon={chevronForward}
+            style={{ fontSize: '20px', color: 'var(--ion-color-primary)' }}
+          />
+        </div>
+      )}
     </button>
   );
 };

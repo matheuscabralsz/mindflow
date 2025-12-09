@@ -23,6 +23,8 @@ import { EntryEditorPage } from './pages/entries/EntryEditorPage';
 import { EntryDetailPage } from './pages/entries/EntryDetailPage';
 import SearchPage from './pages/search/SearchPage';
 import SummariesPage from './pages/ai/SummariesPage';
+import { WeeklySummaryPage } from './pages/summaries/WeeklySummaryPage';
+import { MonthlySummaryPage } from './pages/summaries/MonthlySummaryPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuthStore } from './store/authStore';
 
@@ -130,6 +132,16 @@ const App: React.FC = () => {
             <Route exact path="/summaries">
               <ProtectedRoute>
                 <SummariesPage />
+              </ProtectedRoute>
+            </Route>
+            <Route exact path="/summary/week/:startDate/:endDate">
+              <ProtectedRoute>
+                <WeeklySummaryPage />
+              </ProtectedRoute>
+            </Route>
+            <Route exact path="/summary/monthly/:month">
+              <ProtectedRoute>
+                <MonthlySummaryPage />
               </ProtectedRoute>
             </Route>
 

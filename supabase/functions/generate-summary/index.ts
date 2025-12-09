@@ -102,7 +102,7 @@ serve(async (req) => {
     }
 
     // Get request body
-    const { type = 'daily', date } = await req.json();
+    const { type = 'daily', date, periodStart, periodEnd } = await req.json();
     const targetDate = date ? new Date(date) : new Date();
 
     // Calculate date range
@@ -112,19 +112,32 @@ serve(async (req) => {
     let prompt: string;
 
     if (type === 'monthly') {
-      // First day of the target month
-      startDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+      if (periodStart) {
+        // Use provided period (YYYY-MM format expected, parse as first day of month)
+        const [year, month] = periodStart.split('-').map(Number);
+        startDate = new Date(year, month - 1, 1);
+        endDate = new Date(year, month, 0); // Last day of month
+      } else {
+        // First day of the target month
+        startDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+        // Last day of the target month
+        endDate = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0);
+      }
       startDate.setHours(0, 0, 0, 0);
-      // Last day of the target month
-      endDate = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0);
       endDate.setHours(23, 59, 59, 999);
       insightType = 'monthly_summary';
       prompt = MONTHLY_SUMMARY_PROMPT;
     } else if (type === 'weekly') {
-      startDate = new Date(targetDate);
-      startDate.setDate(startDate.getDate() - 7);
+      if (periodStart && periodEnd) {
+        // Use provided period dates (YYYY-MM-DD format)
+        startDate = new Date(periodStart + 'T00:00:00');
+        endDate = new Date(periodEnd + 'T23:59:59.999');
+      } else {
+        startDate = new Date(targetDate);
+        startDate.setDate(startDate.getDate() - 7);
+        endDate = new Date(targetDate);
+      }
       startDate.setHours(0, 0, 0, 0);
-      endDate = new Date(targetDate);
       endDate.setHours(23, 59, 59, 999);
       insightType = 'weekly_summary';
       prompt = WEEKLY_SUMMARY_PROMPT;
@@ -137,35 +150,34 @@ serve(async (req) => {
       prompt = DAILY_SUMMARY_PROMPT;
     }
 
-    // Check cache first
-    const { data: cachedInsight } = await supabase
+    // Format period dates for storage
+    const periodStartStr = startDate.toISOString().split('T')[0];
+    const periodEndStr = endDate.toISOString().split('T')[0];
+
+    // Check if summary already exists for this period
+    const { data: existingSummary } = await supabase
       .from('ai_insights')
-      .select('content, created_at')
+      .select('id, content, created_at, period_start, period_end')
       .eq('user_id', user.id)
       .eq('insight_type', insightType)
-      .gte('created_at', startDate.toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+      .eq('period_start', periodStartStr)
+      .maybeSingle();
 
-    // Return cached result if less than 6 hours old
-    if (cachedInsight) {
-      const cacheAge = Date.now() - new Date(cachedInsight.created_at).getTime();
-      const sixHours = 6 * 60 * 60 * 1000;
-
-      if (cacheAge < sixHours) {
-        return new Response(
-          JSON.stringify({
-            success: true,
-            data: {
-              ...cachedInsight.content,
-              cached: true,
-              cachedAt: cachedInsight.created_at,
-            },
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    // Return existing summary if found
+    if (existingSummary) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            ...existingSummary.content,
+            periodStart: existingSummary.period_start,
+            periodEnd: existingSummary.period_end,
+            cached: true,
+            cachedAt: existingSummary.created_at,
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Fetch entries for date range
@@ -284,12 +296,14 @@ serve(async (req) => {
       );
     }
 
-    // Cache the result
+    // Store the result with period dates
     await supabase.from('ai_insights').insert({
       user_id: user.id,
       insight_type: insightType,
       content: summary,
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+      period_start: periodStartStr,
+      period_end: periodEndStr,
+      expires_at: null, // Period summaries don't expire
     });
 
     return new Response(
@@ -297,6 +311,8 @@ serve(async (req) => {
         success: true,
         data: {
           ...summary,
+          periodStart: periodStartStr,
+          periodEnd: periodEndStr,
           cached: false,
         },
       }),

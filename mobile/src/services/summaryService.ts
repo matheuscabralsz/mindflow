@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import { startOfWeek, format } from 'date-fns';
 
 export interface PeriodSummary {
-  id: string;
+  id?: string;
   summary: string;
   keyThemes: string[];
   overallMood: string;
@@ -12,6 +12,12 @@ export interface PeriodSummary {
   periodEnd: string;
   highlights?: string[];
   challenges?: string[];
+}
+
+export interface GenerateSummaryResponse {
+  success: boolean;
+  data?: PeriodSummary;
+  error?: string;
 }
 
 /**
@@ -128,4 +134,133 @@ export async function getSummariesForPeriods(
   }
 
   return { weekly, monthly };
+}
+
+/**
+ * Fetch a weekly summary by date range
+ * @param startDate - Start date in YYYY-MM-DD format
+ * @param endDate - End date in YYYY-MM-DD format
+ */
+export async function fetchWeeklySummary(startDate: string, endDate: string): Promise<PeriodSummary | null> {
+  const { data, error } = await supabase
+    .from('ai_insights')
+    .select('*')
+    .eq('insight_type', 'weekly_summary')
+    .eq('period_start', startDate)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching weekly summary:', error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    ...data.content,
+    periodStart: data.period_start,
+    periodEnd: data.period_end,
+  };
+}
+
+/**
+ * Fetch a monthly summary by month
+ * @param month - Month in YYYY-MM format
+ */
+export async function fetchMonthlySummary(month: string): Promise<PeriodSummary | null> {
+  const periodStartStr = `${month}-01`;
+
+  const { data, error } = await supabase
+    .from('ai_insights')
+    .select('*')
+    .eq('insight_type', 'monthly_summary')
+    .eq('period_start', periodStartStr)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching monthly summary:', error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    ...data.content,
+    periodStart: data.period_start,
+    periodEnd: data.period_end,
+  };
+}
+
+/**
+ * Generate a weekly summary on-demand
+ * @param startDate - Start date in YYYY-MM-DD format
+ * @param endDate - End date in YYYY-MM-DD format
+ */
+export async function generateWeeklySummary(startDate: string, endDate: string): Promise<GenerateSummaryResponse> {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    return { success: false, error: 'Not authenticated' };
+  }
+
+  const response = await supabase.functions.invoke('generate-summary', {
+    body: {
+      type: 'weekly',
+      periodStart: startDate,
+      periodEnd: endDate,
+    },
+  });
+
+  if (response.error) {
+    console.error('Error generating weekly summary:', response.error);
+    return { success: false, error: response.error.message };
+  }
+
+  const result = response.data;
+
+  if (!result.success) {
+    return { success: false, error: result.error };
+  }
+
+  return {
+    success: true,
+    data: result.data,
+  };
+}
+
+/**
+ * Generate a monthly summary on-demand
+ * @param month - Month in YYYY-MM format
+ */
+export async function generateMonthlySummary(month: string): Promise<GenerateSummaryResponse> {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    return { success: false, error: 'Not authenticated' };
+  }
+
+  const response = await supabase.functions.invoke('generate-summary', {
+    body: {
+      type: 'monthly',
+      periodStart: month,
+    },
+  });
+
+  if (response.error) {
+    console.error('Error generating monthly summary:', response.error);
+    return { success: false, error: response.error.message };
+  }
+
+  const result = response.data;
+
+  if (!result.success) {
+    return { success: false, error: result.error };
+  }
+
+  return {
+    success: true,
+    data: result.data,
+  };
 }

@@ -21,9 +21,8 @@ import {
   IonText,
   IonRefresher,
   IonRefresherContent,
-  useIonAlert,
 } from '@ionic/react';
-import { add, search, sparklesOutline, journalOutline, trashOutline, filterOutline } from 'ionicons/icons';
+import { add, search, sparklesOutline, journalOutline, filterOutline } from 'ionicons/icons';
 import { AISummaryCard } from '../../components/entries/AISummaryCard';
 import {
   format,
@@ -46,8 +45,7 @@ type ContentFilter = 'all' | 'summaries' | 'entries';
 
 export const EntryListPage: React.FC = () => {
   const history = useHistory();
-  const [presentAlert] = useIonAlert();
-  const { entries, loading, error, fetchEntries, deleteEntry } = useEntriesStore();
+  const { entries, loading, error, fetchEntries } = useEntriesStore();
   const [weeklySummaries, setWeeklySummaries] = useState<Map<string, PeriodSummary>>(new Map());
   const [monthlySummaries, setMonthlySummaries] = useState<Map<string, PeriodSummary>>(new Map());
 
@@ -120,24 +118,6 @@ export const EntryListPage: React.FC = () => {
 
   const handleSummariesClick = () => {
     history.push('/summaries');
-  };
-
-  const handleDeleteEntry = (e: React.MouseEvent, entryId: string, entryDate: string) => {
-    e.stopPropagation();
-    presentAlert({
-      header: 'Delete Entry',
-      message: `Are you sure you want to delete the entry from ${formatEntryDate(entryDate)}?`,
-      buttons: [
-        { text: 'Cancel', role: 'cancel' },
-        {
-          text: 'Delete',
-          role: 'destructive',
-          handler: () => {
-            deleteEntry(entryId);
-          },
-        },
-      ],
-    });
   };
 
   const formatEntryDate = (dateStr: string) => {
@@ -496,6 +476,7 @@ export const EntryListPage: React.FC = () => {
                       type="month"
                       period={formatMonthHeader(entryDate)}
                       summary={monthlySummaries.get(getMonthKey(entryDate))?.summary}
+                      monthKey={format(entryDate, 'yyyy-MM')}
                     />
                   )}
 
@@ -528,117 +509,90 @@ export const EntryListPage: React.FC = () => {
                       type="week"
                       period={formatWeekHeader(entryDate)}
                       summary={weeklySummaries.get(getWeekKey(entryDate))?.summary}
+                      weekStart={startOfWeek(entryDate, { weekStartsOn: 0 })}
+                      weekEnd={endOfWeek(entryDate, { weekStartsOn: 0 })}
                     />
                   )}
 
                   {/* Entry Card */}
                   {showEntries && (
-                    <div
+                    <button
+                      onClick={() => handleEntryClick(entry.entry_date)}
                       style={{
+                        width: '100%',
                         display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
+                        alignItems: 'flex-start',
+                        gap: '14px',
+                        padding: '16px',
                         marginBottom: '10px',
+                        background: 'var(--ion-background-color, #fff)',
+                        border: '1px solid var(--ion-color-light)',
+                        borderRadius: '14px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'transform 0.1s ease',
                       }}
                     >
-                      <button
-                        onClick={() => handleEntryClick(entry.entry_date)}
+                      {/* Mood indicator */}
+                      <div
                         style={{
-                          flex: 1,
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '14px',
-                          padding: '16px',
-                          background: 'var(--ion-background-color, #fff)',
-                          border: '1px solid var(--ion-color-light)',
-                          borderRadius: '14px',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          transition: 'transform 0.1s ease',
-                        }}
-                      >
-                        {/* Mood indicator */}
-                        <div
-                          style={{
-                            width: '48px',
-                            height: '48px',
-                            borderRadius: '12px',
-                            background: entry.mood
-                              ? `${getMoodColor(entry.mood)}15`
-                              : 'var(--ion-color-light)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                          }}
-                        >
-                          {entry.mood ? (
-                            <span style={{ fontSize: '24px' }}>{getMoodEmoji(entry.mood)}</span>
-                          ) : (
-                            <IonIcon
-                              icon={journalOutline}
-                              style={{ fontSize: '20px', color: 'var(--ion-color-medium)' }}
-                            />
-                          )}
-                        </div>
-
-                        {/* Content */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              marginBottom: '6px',
-                            }}
-                          >
-                            <span style={{ fontWeight: '600', fontSize: '15px' }}>
-                              {formatEntryDate(entry.entry_date)}
-                            </span>
-                            <IonText color="medium">
-                              <span style={{ fontSize: '12px' }}>
-                                {format(new Date(entry.entry_date + 'T00:00:00'), 'MMM d')}
-                              </span>
-                            </IonText>
-                          </div>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: '14px',
-                              lineHeight: '1.5',
-                              color: 'var(--ion-color-medium-shade)',
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                            }}
-                          >
-                            {entry.content ? stripMarkdown(entry.content) : 'No content yet...'}
-                          </p>
-                        </div>
-                      </button>
-
-                      {/* Delete button */}
-                      <button
-                        onClick={(e) => handleDeleteEntry(e, entry.id, entry.entry_date)}
-                        aria-label="Delete entry"
-                        style={{
-                          width: '44px',
-                          height: '44px',
+                          width: '48px',
+                          height: '48px',
+                          borderRadius: '12px',
+                          background: entry.mood
+                            ? `${getMoodColor(entry.mood)}15`
+                            : 'var(--ion-color-light)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          background: 'transparent',
-                          border: 'none',
-                          borderRadius: '12px',
-                          cursor: 'pointer',
-                          color: 'var(--ion-color-medium)',
                           flexShrink: 0,
                         }}
                       >
-                        <IonIcon icon={trashOutline} style={{ fontSize: '20px' }} />
-                      </button>
-                    </div>
+                        {entry.mood ? (
+                          <span style={{ fontSize: '24px' }}>{getMoodEmoji(entry.mood)}</span>
+                        ) : (
+                          <IonIcon
+                            icon={journalOutline}
+                            style={{ fontSize: '20px', color: 'var(--ion-color-medium)' }}
+                          />
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '6px',
+                          }}
+                        >
+                          <span style={{ fontWeight: '600', fontSize: '15px' }}>
+                            {formatEntryDate(entry.entry_date)}
+                          </span>
+                          <IonText color="medium">
+                            <span style={{ fontSize: '12px' }}>
+                              {format(new Date(entry.entry_date + 'T00:00:00'), 'MMM d')}
+                            </span>
+                          </IonText>
+                        </div>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: '14px',
+                            lineHeight: '1.5',
+                            color: 'var(--ion-color-medium-shade)',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {entry.content ? stripMarkdown(entry.content) : 'No content yet...'}
+                        </p>
+                      </div>
+                    </button>
                   )}
                 </React.Fragment>
               );

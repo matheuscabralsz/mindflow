@@ -19,9 +19,14 @@ import {
   IonToast,
   IonText,
   IonIcon,
+  IonPopover,
+  IonList,
+  IonItem,
+  IonLabel,
+  useIonAlert,
 } from '@ionic/react';
 import { format, isToday, isYesterday } from 'date-fns';
-import { calendarOutline, checkmarkOutline } from 'ionicons/icons';
+import { calendarOutline, checkmarkOutline, ellipsisVertical, trashOutline } from 'ionicons/icons';
 import { MoodPicker } from '../../components/entries/MoodPicker';
 import { RichTextEditor } from '../../components/entries/RichTextEditor';
 import { ImageGallery } from '../../components/entries/ImageGallery';
@@ -61,7 +66,8 @@ export const EntryEditorPage: React.FC = () => {
   const history = useHistory();
   const { date } = useParams<{ date?: string }>();
   const { user } = useAuthStore();
-  const { selectedEntry, loading, error, fetchEntryByDate, createEntry, updateEntry, setSelectedEntry } =
+  const [presentAlert] = useIonAlert();
+  const { selectedEntry, loading, error, fetchEntryByDate, createEntry, updateEntry, deleteEntry, setSelectedEntry } =
     useEntriesStore();
 
   const [content, setContent] = useState('');
@@ -71,6 +77,8 @@ export const EntryEditorPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [images, setImages] = useState<EntryImage[]>([]);
   const [imagesLoading, setImagesLoading] = useState(false);
+  const [showPopover, setShowPopover] = useState(false);
+  const [popoverEvent, setPopoverEvent] = useState<MouseEvent | undefined>(undefined);
 
   // Track which date we've fetched to prevent double fetches
   const fetchedDateRef = useRef<string | null>(null);
@@ -227,6 +235,33 @@ export const EntryEditorPage: React.FC = () => {
     }
   };
 
+  const handleOpenMenu = (e: React.MouseEvent) => {
+    setPopoverEvent(e.nativeEvent);
+    setShowPopover(true);
+  };
+
+  const handleDeleteEntry = () => {
+    setShowPopover(false);
+    const existingEntry = existingEntryRef.current;
+    if (!existingEntry?.id) return;
+
+    presentAlert({
+      header: 'Delete Entry',
+      message: 'Are you sure you want to delete this entry? This action cannot be undone.',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          handler: async () => {
+            await deleteEntry(existingEntry.id);
+            history.push('/entries');
+          },
+        },
+      ],
+    });
+  };
+
   // Format date for display
   const formatDisplayDate = () => {
     if (!entryDate) return '';
@@ -261,9 +296,27 @@ export const EntryEditorPage: React.FC = () => {
                 </>
               )}
             </IonButton>
+            {isInitialized && existingEntryRef.current?.id && (
+              <IonButton onClick={handleOpenMenu}>
+                <IonIcon slot="icon-only" icon={ellipsisVertical} />
+              </IonButton>
+            )}
           </IonButtons>
         </IonToolbar>
       </IonHeader>
+
+      <IonPopover
+        isOpen={showPopover}
+        event={popoverEvent}
+        onDidDismiss={() => setShowPopover(false)}
+      >
+        <IonList>
+          <IonItem button onClick={handleDeleteEntry} detail={false}>
+            <IonIcon slot="start" icon={trashOutline} color="danger" />
+            <IonLabel color="danger">Delete Entry</IonLabel>
+          </IonItem>
+        </IonList>
+      </IonPopover>
 
       <IonContent>
         {loading && !isInitialized && (
