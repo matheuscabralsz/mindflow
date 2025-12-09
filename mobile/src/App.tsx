@@ -1,8 +1,19 @@
 import { useEffect } from 'react';
 import { Redirect, Route } from 'react-router-dom';
-import { IonApp, IonRouterOutlet, setupIonicReact } from '@ionic/react';
+import {
+  IonApp,
+  IonIcon,
+  IonLabel,
+  IonRouterOutlet,
+  IonTabBar,
+  IonTabButton,
+  IonTabs,
+  setupIonicReact,
+} from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
+import { homeOutline, sparklesOutline } from 'ionicons/icons';
 import Home from './pages/Home';
+import InsightsPage from './pages/insights/InsightsPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { SignupPage } from './pages/auth/SignupPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
@@ -58,72 +69,92 @@ const App: React.FC = () => {
   return (
     <IonApp>
       <IonReactRouter>
-        <IonRouterOutlet>
-          {/* Public Routes */}
-          <Route exact path="/login">
-            <LoginPage />
-          </Route>
-          <Route exact path="/signup">
-            <SignupPage />
-          </Route>
-          <Route exact path="/forgot-password">
-            <ForgotPasswordPage />
-          </Route>
+        <IonTabs>
+          <IonRouterOutlet>
+            {/* Public Routes */}
+            <Route exact path="/login">
+              <LoginPage />
+            </Route>
+            <Route exact path="/signup">
+              <SignupPage />
+            </Route>
+            <Route exact path="/forgot-password">
+              <ForgotPasswordPage />
+            </Route>
 
-          {/* Protected Routes */}
-          <Route exact path="/home">
-            <ProtectedRoute>
-              <Home />
-            </ProtectedRoute>
-          </Route>
-          <Route exact path="/profile">
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          </Route>
+            {/* Tab Routes */}
+            <Route exact path="/home">
+              <ProtectedRoute>
+                <Home />
+              </ProtectedRoute>
+            </Route>
+            <Route exact path="/insights">
+              <ProtectedRoute>
+                <InsightsPage />
+              </ProtectedRoute>
+            </Route>
 
-          {/* Entry Routes */}
-          <Route exact path="/entries">
-            <ProtectedRoute>
-              <EntryListPage />
-            </ProtectedRoute>
-          </Route>
-          <Route exact path="/entries/edit">
-            <ProtectedRoute>
-              <EntryEditorPage />
-            </ProtectedRoute>
-          </Route>
-          <Route exact path="/entries/edit/:date">
-            <ProtectedRoute>
-              <EntryEditorPage />
-            </ProtectedRoute>
-          </Route>
-          <Route exact path="/entries/view/:date">
-            <ProtectedRoute>
-              <EntryDetailPage />
-            </ProtectedRoute>
-          </Route>
-          <Route exact path="/search">
-            <ProtectedRoute>
-              <SearchPage />
-            </ProtectedRoute>
-          </Route>
-          <Route exact path="/summaries">
-            <ProtectedRoute>
-              <SummariesPage />
-            </ProtectedRoute>
-          </Route>
+            {/* Other Protected Routes */}
+            <Route exact path="/profile">
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            </Route>
 
-          {/* Default Redirect */}
-          <Route exact path="/">
-            <Redirect to="/home" />
-          </Route>
+            {/* Entry Routes */}
+            <Route exact path="/entries">
+              <ProtectedRoute>
+                <EntryListPage />
+              </ProtectedRoute>
+            </Route>
+            <Route exact path="/entries/edit">
+              <ProtectedRoute>
+                <EntryEditorPage />
+              </ProtectedRoute>
+            </Route>
+            <Route exact path="/entries/edit/:date">
+              <ProtectedRoute>
+                <EntryEditorPage />
+              </ProtectedRoute>
+            </Route>
+            <Route exact path="/entries/view/:date">
+              <ProtectedRoute>
+                <EntryDetailPage />
+              </ProtectedRoute>
+            </Route>
+            <Route exact path="/search">
+              <ProtectedRoute>
+                <SearchPage />
+              </ProtectedRoute>
+            </Route>
+            <Route exact path="/summaries">
+              <ProtectedRoute>
+                <SummariesPage />
+              </ProtectedRoute>
+            </Route>
 
-          {/* Catch-all: redirect unknown routes to root */}
-          <Route>
-            <Redirect to="/" />
-          </Route>
-        </IonRouterOutlet>
+            {/* Default Redirect */}
+            <Route exact path="/">
+              <Redirect to="/home" />
+            </Route>
+
+            {/* Catch-all: redirect unknown routes to root */}
+            <Route>
+              <Redirect to="/" />
+            </Route>
+          </IonRouterOutlet>
+
+          <IonTabBar slot="bottom">
+            <IonTabButton tab="home" href="/home">
+              <IonIcon icon={homeOutline} />
+              <IonLabel>Home</IonLabel>
+            </IonTabButton>
+            <IonTabButton tab="insights" href="/insights">
+              <IonIcon icon={sparklesOutline} />
+              <IonLabel>Insights</IonLabel>
+            </IonTabButton>
+          </IonTabBar>
+        </IonTabs>
       </IonReactRouter>
     </IonApp>
   );
