@@ -24,7 +24,17 @@ import {
   useIonAlert,
 } from '@ionic/react';
 import { add, search, sparklesOutline, journalOutline, trashOutline } from 'ionicons/icons';
-import { format, isToday, isYesterday } from 'date-fns';
+import { AISummaryCard } from '../../components/entries/AISummaryCard';
+import {
+  format,
+  isToday,
+  isYesterday,
+  startOfWeek,
+  endOfWeek,
+  isThisWeek,
+  isSameWeek,
+  isSameMonth,
+} from 'date-fns';
 import { useEntriesStore } from '../../store/entriesStore';
 import { getMoodEmoji, getMoodColor } from '../../utils/moods';
 
@@ -100,6 +110,37 @@ export const EntryListPage: React.FC = () => {
       .replace(/<[^>]+>/g, '') // Remove HTML tags
       .replace(/\n+/g, ' ') // Replace newlines with spaces
       .trim();
+  };
+
+  const formatMonthHeader = (date: Date) => {
+    return format(date, 'MMMM yyyy');
+  };
+
+  const formatWeekHeader = (date: Date) => {
+    const now = new Date();
+    if (isThisWeek(date, { weekStartsOn: 0 })) {
+      return 'This Week';
+    }
+    if (isSameWeek(date, new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), { weekStartsOn: 0 })) {
+      return 'Last Week';
+    }
+    const weekStart = startOfWeek(date, { weekStartsOn: 0 });
+    const weekEnd = endOfWeek(date, { weekStartsOn: 0 });
+    return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`;
+  };
+
+  const shouldShowMonthHeader = (entry: typeof entries[0], index: number) => {
+    if (index === 0) return true;
+    const currentDate = new Date(entry.entry_date + 'T00:00:00');
+    const prevDate = new Date(entries[index - 1].entry_date + 'T00:00:00');
+    return !isSameMonth(currentDate, prevDate);
+  };
+
+  const shouldShowWeekHeader = (entry: typeof entries[0], index: number) => {
+    if (index === 0) return true;
+    const currentDate = new Date(entry.entry_date + 'T00:00:00');
+    const prevDate = new Date(entries[index - 1].entry_date + 'T00:00:00');
+    return !isSameWeek(currentDate, prevDate, { weekStartsOn: 0 });
   };
 
   return (
@@ -199,16 +240,82 @@ export const EntryListPage: React.FC = () => {
 
         {entries.length > 0 && (
           <div style={{ padding: '12px 16px 100px 16px' }}>
-            {entries.map((entry) => (
-              <div
-                key={entry.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  marginBottom: '10px',
-                }}
-              >
+            {entries.map((entry, index) => {
+              const entryDate = new Date(entry.entry_date + 'T00:00:00');
+              const showMonth = shouldShowMonthHeader(entry, index);
+              const showWeek = shouldShowWeekHeader(entry, index);
+
+              return (
+                <React.Fragment key={entry.id}>
+                  {/* Month Header */}
+                  {showMonth && (
+                    <>
+                      <div
+                        style={{
+                          marginTop: index === 0 ? '0' : '24px',
+                          marginBottom: '8px',
+                          paddingBottom: '8px',
+                          borderBottom: '2px solid var(--ion-color-primary)',
+                        }}
+                      >
+                        <h2
+                          style={{
+                            margin: 0,
+                            fontSize: '18px',
+                            fontWeight: '700',
+                            color: 'var(--ion-color-primary)',
+                          }}
+                        >
+                          {formatMonthHeader(entryDate)}
+                        </h2>
+                      </div>
+                      {/* Monthly AI Summary Card */}
+                      <AISummaryCard
+                        type="month"
+                        period={formatMonthHeader(entryDate)}
+                      />
+                    </>
+                  )}
+
+                  {/* Week Header */}
+                  {showWeek && (
+                    <>
+                      <div
+                        style={{
+                          marginTop: showMonth ? '4px' : '16px',
+                          marginBottom: '10px',
+                          paddingLeft: '4px',
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            color: 'var(--ion-color-medium)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                          }}
+                        >
+                          {formatWeekHeader(entryDate)}
+                        </span>
+                      </div>
+                      {/* Weekly AI Summary Card */}
+                      <AISummaryCard
+                        type="week"
+                        period={formatWeekHeader(entryDate)}
+                      />
+                    </>
+                  )}
+
+                  {/* Entry Card */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginBottom: '10px',
+                    }}
+                  >
                 <button
                   onClick={() => handleEntryClick(entry.entry_date)}
                   style={{
@@ -306,8 +413,10 @@ export const EntryListPage: React.FC = () => {
                 >
                   <IonIcon icon={trashOutline} style={{ fontSize: '20px' }} />
                 </button>
-              </div>
-            ))}
+                  </div>
+                </React.Fragment>
+              );
+            })}
           </div>
         )}
 
