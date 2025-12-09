@@ -28,13 +28,14 @@ import { Calendar } from '../components/calendar/Calendar';
 const Home: React.FC = () => {
   const history = useHistory();
   const { user } = useAuthStore();
-  const { entries, fetchEntries } = useEntriesStore();
+  const entries = useEntriesStore((state) => state.entries);
+  const fetchEntries = useEntriesStore((state) => state.fetchEntries);
   const [greeting, setGreeting] = useState('');
   const [greetingIcon, setGreetingIcon] = useState(sunnyOutline);
 
   useEffect(() => {
     fetchEntries();
-  }, [fetchEntries]);
+  }, []);
 
   useEffect(() => {
     const hour = new Date().getHours();

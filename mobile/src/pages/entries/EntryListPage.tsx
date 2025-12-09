@@ -45,7 +45,10 @@ type ContentFilter = 'all' | 'summaries' | 'entries';
 
 export const EntryListPage: React.FC = () => {
   const history = useHistory();
-  const { entries, loading, error, fetchEntries } = useEntriesStore();
+  const entries = useEntriesStore((state) => state.entries);
+  const loading = useEntriesStore((state) => state.loading);
+  const error = useEntriesStore((state) => state.error);
+  const fetchEntries = useEntriesStore((state) => state.fetchEntries);
   const [weeklySummaries, setWeeklySummaries] = useState<Map<string, PeriodSummary>>(new Map());
   const [monthlySummaries, setMonthlySummaries] = useState<Map<string, PeriodSummary>>(new Map());
 
@@ -73,7 +76,7 @@ export const EntryListPage: React.FC = () => {
 
   useEffect(() => {
     fetchEntries();
-  }, [fetchEntries]);
+  }, []);
 
   // Fetch summaries when periods change
   useEffect(() => {

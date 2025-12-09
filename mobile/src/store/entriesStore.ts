@@ -13,9 +13,10 @@ interface EntriesState {
   selectedEntry: Entry | null;
   loading: boolean;
   error: string | null;
+  lastFetchTime: number | null;
 
   // Actions
-  fetchEntries: () => Promise<void>;
+  fetchEntries: (force?: boolean) => Promise<void>;
   fetchEntry: (id: string) => Promise<void>;
   fetchEntryByDate: (entryDate: string) => Promise<Entry | null>;
   fetchOrCreateEntryByDate: (entryDate: string, userId: string) => Promise<Entry>;
@@ -28,24 +29,51 @@ interface EntriesState {
   clearEntries: () => void;
 }
 
-export const useEntriesStore = create<EntriesState>((set) => ({
+// Track in-flight requests to prevent duplicates
+let fetchEntriesPromise: Promise<void> | null = null;
+
+// Cache duration in milliseconds (5 seconds - prevents rapid duplicate calls)
+const CACHE_DURATION = 5000;
+
+export const useEntriesStore = create<EntriesState>((set, get) => ({
   // Initial state
   entries: [],
   selectedEntry: null,
   loading: false,
   error: null,
+  lastFetchTime: null,
 
-  // Fetch all entries
-  fetchEntries: async () => {
-    set({ loading: true, error: null });
-    try {
-      const entries = await entriesService.getAllEntries();
-      set({ entries, loading: false });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch entries';
-      set({ error: errorMessage, loading: false });
-      throw error;
+  // Fetch all entries with deduplication
+  fetchEntries: async (force = false) => {
+    const state = get();
+    const now = Date.now();
+
+    // Skip if we have recent data (unless forced)
+    if (!force && state.lastFetchTime && now - state.lastFetchTime < CACHE_DURATION) {
+      return;
     }
+
+    // If a fetch is already in progress, wait for it instead of starting a new one
+    if (fetchEntriesPromise) {
+      return fetchEntriesPromise;
+    }
+
+    set({ loading: true, error: null });
+
+    fetchEntriesPromise = (async () => {
+      try {
+        const entries = await entriesService.getAllEntries();
+        set({ entries, loading: false, lastFetchTime: Date.now() });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch entries';
+        set({ error: errorMessage, loading: false });
+        throw error;
+      } finally {
+        fetchEntriesPromise = null;
+      }
+    })();
+
+    return fetchEntriesPromise;
   },
 
   // Fetch single entry by ID
@@ -182,6 +210,6 @@ export const useEntriesStore = create<EntriesState>((set) => ({
 
   // Clear all entries (for logout)
   clearEntries: () => {
-    set({ entries: [], selectedEntry: null, error: null });
+    set({ entries: [], selectedEntry: null, error: null, lastFetchTime: null });
   },
 }));

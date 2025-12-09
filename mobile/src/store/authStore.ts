@@ -23,6 +23,9 @@ interface AuthState {
   clearError: () => void;
 }
 
+// Track in-flight initialization to prevent duplicate calls (e.g., from StrictMode)
+let initializePromise: Promise<void> | null = null;
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   loading: false,
@@ -34,44 +37,66 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    * Checks for existing session and sets up auth state listener
    */
   initialize: async () => {
-    try {
-      set({ loading: true, error: null });
-
-      // Get current session
-      const session = await authService.getSession();
-      const curUser = await authService.getCurrentUser();
-        console.log('Current user:', curUser);
-
-      if (session) {
-        const user = await authService.getCurrentUser();
-        set({ user, loading: false, initialized: true });
-      } else {
-        set({ user: null, loading: false, initialized: true });
-      }
-
-      // Listen to auth state changes
-      authService.onAuthStateChange(async (event, session) => {
-        console.log('Auth state changed event:', event);
-        console.log('Auth state changed session:', session);
-
-        if (event === 'SIGNED_IN' && session) {
-          const user = await authService.getCurrentUser();
-          set({ user, loading: false });
-        } else if (event === 'SIGNED_OUT') {
-          set({ user: null, loading: false });
-        } else if (event === 'TOKEN_REFRESHED' && session) {
-          const user = await authService.getCurrentUser();
-          set({ user });
-        }
-      });
-    } catch (error) {
-      console.error('Failed to initialize auth:', error);
-      set({
-        error: error instanceof Error ? error.message : 'Failed to initialize',
-        loading: false,
-        initialized: true,
-      });
+    // If already initialized, skip
+    if (get().initialized) {
+      return;
     }
+
+    // If initialization is in progress, wait for it
+    if (initializePromise) {
+      return initializePromise;
+    }
+
+    initializePromise = (async () => {
+      try {
+        set({ loading: true, error: null });
+
+        // Get current session and user in one call
+        const session = await authService.getSession();
+
+        if (session) {
+          const user = await authService.getCurrentUser();
+          set({ user, loading: false, initialized: true });
+        } else {
+          set({ user: null, loading: false, initialized: true });
+        }
+
+        // Listen to auth state changes
+        // Note: We skip fetching on SIGNED_IN during initial load since we already have the user
+        let isInitialEvent = true;
+        authService.onAuthStateChange(async (event, session) => {
+          // Skip the initial SIGNED_IN event - we already fetched the user above
+          if (isInitialEvent && event === 'SIGNED_IN') {
+            isInitialEvent = false;
+            return;
+          }
+          isInitialEvent = false;
+
+          if (event === 'SIGNED_IN' && session) {
+            const user = await authService.getCurrentUser();
+            set({ user, loading: false });
+          } else if (event === 'SIGNED_OUT') {
+            set({ user: null, loading: false });
+          } else if (event === 'TOKEN_REFRESHED' && session) {
+            // On token refresh, we can reuse existing user data unless profile changed
+            const currentUser = get().user;
+            if (currentUser) {
+              // Just keep the existing user, token refresh doesn't change user data
+              set({ user: currentUser });
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Failed to initialize auth:', error);
+        set({
+          error: error instanceof Error ? error.message : 'Failed to initialize',
+          loading: false,
+          initialized: true,
+        });
+      }
+    })();
+
+    return initializePromise;
   },
 
   /**
