@@ -37,3 +37,5 @@ supabase/config.toml
 mobile/supabase/.temp/
 mobile/supabase/.branches/
 mobile/supabase/config.toml
+.vercel
+.env*.local

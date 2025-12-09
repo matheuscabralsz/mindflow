@@ -104,6 +104,15 @@ const Home: React.FC = () => {
         </div>
 
         <div style={{ padding: '20px' }}>
+          {/* Start Writing Button */}
+          <IonButton
+            expand="block"
+            onClick={() => history.push('/entries/edit')}
+            style={{ marginBottom: '20px' }}
+          >
+            Start Writing
+          </IonButton>
+
           {/* Calendar Section */}
           <div style={{ marginBottom: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>

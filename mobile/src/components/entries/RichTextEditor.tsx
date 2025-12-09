@@ -131,15 +131,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     content: value,
     editable: !disabled,
     onUpdate: ({ editor }) => {
-      // Get markdown content
-      const markdown = editor.storage.markdown.getMarkdown();
+      // Get markdown content (type assertion needed for tiptap-markdown extension)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const markdown = (editor.storage as any).markdown.getMarkdown();
       onChange(markdown);
     },
   });
 
   // Update content when value prop changes externally
   React.useEffect(() => {
-    if (editor && value !== editor.storage.markdown.getMarkdown()) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (editor && value !== (editor.storage as any).markdown.getMarkdown()) {
       editor.commands.setContent(value);
     }
   }, [value, editor]);

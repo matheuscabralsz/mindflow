@@ -118,6 +118,11 @@ const App: React.FC = () => {
           <Route exact path="/">
             <Redirect to="/home" />
           </Route>
+
+          {/* Catch-all: redirect unknown routes to root */}
+          <Route>
+            <Redirect to="/" />
+          </Route>
         </IonRouterOutlet>
       </IonReactRouter>
     </IonApp>

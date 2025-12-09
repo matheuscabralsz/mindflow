@@ -64,6 +64,13 @@ npx supabase secrets set OPENAI_API_KEY=sk-xxx  # Set secrets
 npx supabase functions deploy                    # Deploy all functions
 ```
 
+### Vercel Deployment
+```bash
+cd mobile
+npx vercel                       # Preview deployment
+npx vercel --prod                # Production deployment
+```
+
 ## Documentation
 
 - [Initial Idea](docs/initial-idea.md)
