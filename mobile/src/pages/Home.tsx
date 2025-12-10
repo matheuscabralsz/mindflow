@@ -9,17 +9,13 @@ import {
   IonButton,
   IonIcon,
   IonButtons,
-  IonText,
 } from '@ionic/react';
 import {
   personCircle,
   journalOutline,
-  sparklesOutline,
   sunnyOutline,
   moonOutline,
   cloudyOutline,
-  calendarOutline,
-  chevronForwardOutline,
 } from 'ionicons/icons';
 import { format } from 'date-fns';
 import { useAuthStore } from '../store/authStore';
@@ -54,12 +50,6 @@ const Home: React.FC = () => {
 
   const firstName = user?.profile?.display_name?.split(' ')[0] || 'there';
   const todayFormatted = format(new Date(), 'EEEE, MMMM d');
-  const entriesThisWeek = entries.filter((entry) => {
-    const entryDate = new Date(entry.entry_date);
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    return entryDate >= weekAgo;
-  }).length;
 
   // Extract dates that have entries for the calendar
   const entryDates = useMemo(
@@ -117,10 +107,6 @@ const Home: React.FC = () => {
 
           {/* Calendar Section */}
           <div style={{ marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-              <IonIcon icon={calendarOutline} style={{ fontSize: '20px', color: 'var(--ion-color-primary)' }} />
-              <span style={{ fontWeight: '600', fontSize: '16px' }}>Select a Date</span>
-            </div>
             <Calendar
               entryDates={entryDates}
               onDateSelect={handleDateSelect}
@@ -149,66 +135,6 @@ const Home: React.FC = () => {
             <span style={{ fontSize: '15px', fontWeight: '500' }}>View All Entries</span>
           </button>
 
-          {/* Stats Card */}
-          <div
-            style={{
-              background: 'var(--ion-background-color, #fff)',
-              border: '1px solid var(--ion-color-light)',
-              borderRadius: '16px',
-              padding: '20px',
-              marginBottom: '16px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              <IonIcon icon={sparklesOutline} style={{ fontSize: '20px', color: 'var(--ion-color-secondary)' }} />
-              <span style={{ fontWeight: '600', fontSize: '16px' }}>Your Journey</span>
-            </div>
-            <div style={{ display: 'flex', gap: '24px' }}>
-              <div>
-                <div style={{ fontSize: '32px', fontWeight: '700', color: 'var(--ion-color-primary)' }}>
-                  {entries.length}
-                </div>
-                <IonText color="medium">
-                  <span style={{ fontSize: '13px' }}>Total entries</span>
-                </IonText>
-              </div>
-              <div>
-                <div style={{ fontSize: '32px', fontWeight: '700', color: 'var(--ion-color-success)' }}>
-                  {entriesThisWeek}
-                </div>
-                <IonText color="medium">
-                  <span style={{ fontSize: '13px' }}>This week</span>
-                </IonText>
-              </div>
-            </div>
-          </div>
-
-          {/* AI Insights Button */}
-          <button
-            onClick={() => history.push('/summaries')}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '16px 20px',
-              background: 'linear-gradient(135deg, var(--ion-color-secondary) 0%, var(--ion-color-primary) 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '16px',
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <IonIcon icon={sparklesOutline} style={{ fontSize: '24px' }} />
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: '600', fontSize: '15px' }}>AI Insights</div>
-                <div style={{ fontSize: '13px', opacity: 0.9 }}>View patterns & summaries</div>
-              </div>
-            </div>
-            <IonIcon icon={chevronForwardOutline} style={{ fontSize: '20px' }} />
-          </button>
         </div>
       </IonContent>
     </IonPage>

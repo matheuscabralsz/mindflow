@@ -119,10 +119,6 @@ export const EntryListPage: React.FC = () => {
     history.push('/search');
   };
 
-  const handleSummariesClick = () => {
-    history.push('/summaries');
-  };
-
   const formatEntryDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00');
     if (isToday(date)) return 'Today';
@@ -189,9 +185,6 @@ export const EntryListPage: React.FC = () => {
           </IonButtons>
           <IonTitle>My Journal</IonTitle>
           <IonButtons slot="end">
-            <IonButton onClick={handleSummariesClick} aria-label="AI summaries">
-              <IonIcon slot="icon-only" icon={sparklesOutline} />
-            </IonButton>
             <IonButton onClick={handleSearchClick} aria-label="search">
               <IonIcon slot="icon-only" icon={search} />
             </IonButton>

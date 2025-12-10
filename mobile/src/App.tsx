@@ -22,7 +22,6 @@ import { EntryListPage } from './pages/entries/EntryListPage';
 import { EntryEditorPage } from './pages/entries/EntryEditorPage';
 import { EntryDetailPage } from './pages/entries/EntryDetailPage';
 import SearchPage from './pages/search/SearchPage';
-import SummariesPage from './pages/ai/SummariesPage';
 import { WeeklySummaryPage } from './pages/summaries/WeeklySummaryPage';
 import { MonthlySummaryPage } from './pages/summaries/MonthlySummaryPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -129,17 +128,12 @@ const App: React.FC = () => {
                 <SearchPage />
               </ProtectedRoute>
             </Route>
-            <Route exact path="/summaries">
-              <ProtectedRoute>
-                <SummariesPage />
-              </ProtectedRoute>
-            </Route>
-            <Route exact path="/summary/week/:startDate/:endDate">
+            <Route path="/summary/week/:startDate/:endDate">
               <ProtectedRoute>
                 <WeeklySummaryPage />
               </ProtectedRoute>
             </Route>
-            <Route exact path="/summary/monthly/:month">
+            <Route path="/summary/monthly/:month">
               <ProtectedRoute>
                 <MonthlySummaryPage />
               </ProtectedRoute>
