@@ -141,7 +141,7 @@ export async function getSummariesForPeriods(
  * @param startDate - Start date in YYYY-MM-DD format
  * @param endDate - End date in YYYY-MM-DD format
  */
-export async function fetchWeeklySummary(startDate: string, endDate: string): Promise<PeriodSummary | null> {
+export async function fetchWeeklySummary(startDate: string, _endDate: string): Promise<PeriodSummary | null> {
   const { data, error } = await supabase
     .from('ai_insights')
     .select('*')

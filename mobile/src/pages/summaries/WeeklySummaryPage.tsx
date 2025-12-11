@@ -17,7 +17,7 @@ import {
   IonButton,
   IonSpinner,
 } from '@ionic/react';
-import { sparkles, bulbOutline, refreshOutline } from 'ionicons/icons';
+import { sparkles, bulbOutline } from 'ionicons/icons';
 import { format, parse } from 'date-fns';
 import {
   fetchWeeklySummary,
